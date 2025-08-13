@@ -1,0 +1,38 @@
+package com.sistema.sistema.infrastructure.controller;
+
+
+import com.sistema.sistema.domain.service.AuthUseCase;
+import jakarta.validation.Valid;
+import lombok.Data;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+public class AuthController {
+
+    private final AuthUseCase authUseCase;
+
+    public AuthController(AuthUseCase authUseCase) {
+        this.authUseCase = authUseCase;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+        try {
+            Map<String, Object> result = authUseCase.login(req.getUsername(), req.getPassword());
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            // puedes mapear excepciones específicas a códigos y respuestas más ricas
+            return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @Data
+    public static class LoginRequest {
+        private String username;
+        private String password;
+    }
+}
