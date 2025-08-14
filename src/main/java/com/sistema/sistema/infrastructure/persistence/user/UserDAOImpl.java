@@ -19,9 +19,10 @@ public class UserDAOImpl implements UserRepository, UserDAO {
     }
 
     @Override
-    public Optional<User> findByUsername(String username) {
-        return jpa.findByUsername(username).map(mapper::toDomain);
+    public Optional<User> findByEmail(String email) {
+        return jpa.findByEmail(email).map(mapper::toDomain);
     }
+
 
     @Override
     public User save(User user) {

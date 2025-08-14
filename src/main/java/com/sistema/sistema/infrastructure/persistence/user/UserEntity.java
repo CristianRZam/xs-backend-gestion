@@ -1,9 +1,8 @@
 package com.sistema.sistema.infrastructure.persistence.user;
 
-
+import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.util.Set;
 
 @Entity
@@ -14,6 +13,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 public class UserEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,11 +21,21 @@ public class UserEntity {
     @Column(unique = true, nullable = false)
     private String username;
 
-    @Column(nullable = false)
-    private String password; // hashed
+    @Column(unique = true, nullable = false)
+    private String email;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
-    private Set<String> roles;
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false)
+    private Boolean isActive = true;
+
+    // Roles del usuario
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<RoleEntity> roles;
 }

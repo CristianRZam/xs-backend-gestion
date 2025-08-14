@@ -22,7 +22,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         try {
-            Map<String, Object> result = authUseCase.login(req.getUsername(), req.getPassword());
+            Map<String, Object> result = authUseCase.login(req.getEmail(), req.getPassword());
             return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
             // puedes mapear excepciones específicas a códigos y respuestas más ricas
@@ -32,7 +32,7 @@ public class AuthController {
 
     @Data
     public static class LoginRequest {
-        private String username;
+        private String email;
         private String password;
     }
 }

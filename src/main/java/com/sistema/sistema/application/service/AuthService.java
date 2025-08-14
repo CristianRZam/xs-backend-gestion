@@ -26,15 +26,15 @@ public class AuthService implements AuthUseCase {
     }
 
     @Override
-    public Map<String, Object> login(String username, String password) {
-        User user = userRepository.findByUsername(username)
+    public Map<String, Object> login(String email, String password) {
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Credenciales inválidas");
         }
 
-        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRoles());
+        String token = jwtTokenProvider.generateToken(user);
         Map<String, Object> resp = new HashMap<>();
         resp.put("token", token);
         resp.put("expiresIn", jwtTokenProvider.getExpirationMs());
