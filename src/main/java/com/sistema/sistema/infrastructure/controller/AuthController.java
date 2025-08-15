@@ -1,6 +1,7 @@
 package com.sistema.sistema.infrastructure.controller;
 
 
+import com.sistema.sistema.application.dto.request.LoginRequest;
 import com.sistema.sistema.domain.service.AuthUseCase;
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -21,18 +22,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
-        try {
-            Map<String, Object> result = authUseCase.login(req.getEmail(), req.getPassword());
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            // puedes mapear excepciones específicas a códigos y respuestas más ricas
-            return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
-        }
+        Map<String, Object> result = authUseCase.login(req.getEmail(), req.getPassword());
+        return ResponseEntity.ok(result);
     }
 
-    @Data
-    public static class LoginRequest {
-        private String email;
-        private String password;
-    }
+
 }

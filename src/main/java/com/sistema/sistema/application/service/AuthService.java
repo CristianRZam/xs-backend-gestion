@@ -1,9 +1,11 @@
 package com.sistema.sistema.application.service;
 
+import com.sistema.sistema.domain.exceptions.ClientException;
 import com.sistema.sistema.domain.model.User;
 import com.sistema.sistema.domain.repository.UserRepository;
 import com.sistema.sistema.domain.service.AuthUseCase;
 import com.sistema.sistema.infrastructure.security.JwtTokenProvider;
+import com.sistema.sistema.shared.constants.ErrorCodes;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -28,10 +30,10 @@ public class AuthService implements AuthUseCase {
     @Override
     public Map<String, Object> login(String email, String password) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ClientException(ErrorCodes.INVALID_CREDENTIALS, "Credenciales inválidas"));
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new RuntimeException("Credenciales inválidas");
+            throw new ClientException(ErrorCodes.INVALID_CREDENTIALS, "Credenciales inválidas");
         }
 
         String token = jwtTokenProvider.generateToken(user);
@@ -40,4 +42,5 @@ public class AuthService implements AuthUseCase {
         resp.put("expiresIn", jwtTokenProvider.getExpirationMs());
         return resp;
     }
+
 }

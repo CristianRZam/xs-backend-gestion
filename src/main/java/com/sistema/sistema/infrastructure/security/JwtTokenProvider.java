@@ -1,14 +1,19 @@
 package com.sistema.sistema.infrastructure.security;
 
 import com.sistema.sistema.domain.model.User;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtTokenProvider {
@@ -19,27 +24,46 @@ public class JwtTokenProvider {
     @Value("${app.jwt.expiration-ms}")
     private long jwtExpirationMs;
 
+    /**
+     * Genera un JWT. - Se aseguran iat y exp en segundos (UTC) en el payload (claims)
+     * - También se setean setIssuedAt / setExpiration (fechas en milisegundos) para JJWT.
+     */
     public String generateToken(User user) {
         if (user == null) throw new IllegalArgumentException("User cannot be null");
 
-        Claims claims = Jwts.claims().setSubject(user.getUsername());
+        // Hora actual en UTC
+        Instant nowUtc = Instant.now();
+        Instant expInstant = nowUtc.plusMillis(jwtExpirationMs);
 
+        long nowSeconds = nowUtc.getEpochSecond();      // segundos epoch UTC
+        long expSeconds = expInstant.getEpochSecond();  // segundos epoch UTC
+
+        Date issuedAt = Date.from(nowUtc);              // Date (ms) para JJWT
+        Date expiry = Date.from(expInstant);            // Date (ms) para JJWT
+
+        // Claims custom
+        Claims claims = Jwts.claims().setSubject(user.getUsername());
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
         claims.put("username", user.getUsername());
         claims.put("isActive", user.getIsActive());
-        claims.put("roles", user.getRoles() != null ? new ArrayList<>(user.getRoles()) : new ArrayList<>());
-        claims.put("permissions", user.getPermissions() != null ? new ArrayList<>(user.getPermissions()) : new ArrayList<>());
+        // Asegurar tipos serializables (listas)
+        List<String> roles = user.getRoles() != null ? new ArrayList<>(user.getRoles()) : new ArrayList<>();
+        List<String> permissions = user.getPermissions() != null ? new ArrayList<>(user.getPermissions()) : new ArrayList<>();
+        claims.put("roles", roles);
+        claims.put("permissions", permissions);
 
-        Date now = new Date();
-        Date expiry = new Date(now.getTime() + jwtExpirationMs);
+        // Añadimos explícitamente iat y exp en segundos (compatibilidad con librerías cliente)
+        claims.put("iat", nowSeconds);
+        claims.put("exp", expSeconds);
 
-        // Convertimos el jwtSecret en SecretKey seguro
+        // Llave secreta segura
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
+        // Construir token: setClaims + setIssuedAt + setExpiration
         return Jwts.builder()
                 .setClaims(claims)
-                .setIssuedAt(now)
+                .setIssuedAt(issuedAt)
                 .setExpiration(expiry)
                 .signWith(key, SignatureAlgorithm.HS512)
                 .compact();
@@ -63,7 +87,7 @@ public class JwtTokenProvider {
                     .build()
                     .parseClaimsJws(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (Exception e) {
             return false;
         }
     }
