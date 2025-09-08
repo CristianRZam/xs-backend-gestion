@@ -1,6 +1,8 @@
 package com.sistema.sistema.infrastructure.persistence.user;
 
 import com.sistema.sistema.domain.model.User;
+import com.sistema.sistema.infrastructure.persistence.permission.PermissionEntity;
+import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import org.springframework.stereotype.Component;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -14,7 +16,7 @@ public class UserMapper {
         // Extraemos roles como nombres
         Set<String> roles = e.getRoles() != null
                 ? e.getRoles().stream()
-                .map(r -> r.getName())
+                .map(RoleEntity::getName)
                 .collect(Collectors.toSet())
                 : Set.of();
 
@@ -22,7 +24,7 @@ public class UserMapper {
         Set<String> permissions = e.getRoles() != null
                 ? e.getRoles().stream()
                 .flatMap(r -> r.getPermissions().stream())
-                .map(p -> p.getName())
+                .map(PermissionEntity::getName)
                 .collect(Collectors.toSet())
                 : Set.of();
 

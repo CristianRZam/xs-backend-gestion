@@ -1,4 +1,4 @@
 package com.sistema.sistema.domain.service;
 
-public class CreateUserUseCase {
+public class UserUseCase {
 }

@@ -4,7 +4,6 @@ package com.sistema.sistema.infrastructure.controller;
 import com.sistema.sistema.application.dto.request.LoginRequest;
 import com.sistema.sistema.domain.service.AuthUseCase;
 import jakarta.validation.Valid;
-import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

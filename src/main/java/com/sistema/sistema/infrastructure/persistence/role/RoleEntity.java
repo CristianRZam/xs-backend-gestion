@@ -18,7 +18,8 @@ import java.util.Set;
 public class RoleEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "roles_seq_gen")
+    @SequenceGenerator(name = "roles_seq_gen", sequenceName = "roles_seq", allocationSize = 1)
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -27,18 +28,33 @@ public class RoleEntity {
     @Column(length = 255)
     private String description;
 
+    @Column(nullable = false)
+    private Boolean active = true;
+
+    // === Campos de auditoría ===
+    @Column(name = "created_by")
+    private Long createdBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "modified_by")
+    private Long modifiedBy;
 
-    // Relación muchos a muchos con usuarios (LAZY para evitar cargar todos los usuarios)
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    // === Relaciones ===
     @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
     @Builder.Default
     private Set<UserEntity> users = new HashSet<>();
 
-    // Relación muchos a muchos con permisos
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "role_permissions",
@@ -48,14 +64,15 @@ public class RoleEntity {
     @Builder.Default
     private Set<PermissionEntity> permissions = new HashSet<>();
 
+    // === Callbacks de JPA ===
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        modifiedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        modifiedAt = LocalDateTime.now();
     }
 }

@@ -42,7 +42,7 @@ public class JwtTokenProvider {
         Date expiry = Date.from(expInstant);            // Date (ms) para JJWT
 
         // Claims custom
-        Claims claims = Jwts.claims().setSubject(user.getUsername());
+        Claims claims = Jwts.claims().setSubject(user.getEmail());
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
         claims.put("username", user.getUsername());

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public class UserDAOImpl implements UserRepository, UserDAO {
+public class UserDAOImpl implements UserRepository{
 
     private final JpaUserRepository jpa;
     private final UserMapper mapper;
