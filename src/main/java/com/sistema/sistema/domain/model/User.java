@@ -12,10 +12,12 @@ import java.util.Set;
 @Builder
 public class User {
     private Long id;
+    private Person person;
     private String username;
     private String email;
     private String password;
-    private Set<String> roles;
+    private Boolean active;
+    private Boolean deleted;
+    private Set<Role> roles;
     private Set<String> permissions;
-    private Boolean isActive;
 }

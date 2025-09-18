@@ -16,7 +16,8 @@ import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 public class PermissionEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "permissions_seq_gen")
+    @SequenceGenerator(name = "permissions_seq_gen", sequenceName = "permissions_seq", allocationSize = 1)
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -25,25 +26,36 @@ public class PermissionEntity {
     @Column(length = 255)
     private String description;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "modified_by")
+    private Long modifiedBy;
+
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     // Relación muchos a muchos con roles
     @ManyToMany(mappedBy = "permissions", fetch = FetchType.LAZY)
     private Set<RoleEntity> roles;
 
-    // Callback para manejar timestamps automáticamente
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        modifiedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        modifiedAt= LocalDateTime.now();
     }
 }

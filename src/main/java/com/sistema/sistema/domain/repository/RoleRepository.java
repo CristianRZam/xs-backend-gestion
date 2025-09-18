@@ -11,4 +11,6 @@ public interface RoleRepository {
     Role getRoleById(Long id);
     Role save(Role request);
     Boolean delete(Long id);
+    Role update(Role request);
+    Boolean updateStatus(Long id);
 }

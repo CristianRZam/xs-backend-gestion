@@ -1,16 +1,16 @@
 package com.sistema.sistema.application.service;
 
-import com.sistema.sistema.domain.exceptions.ClientException;
+import com.sistema.sistema.application.dto.request.LoginRequest;
+import com.sistema.sistema.application.dto.response.auth.LoginResponse;
 import com.sistema.sistema.domain.model.User;
 import com.sistema.sistema.domain.repository.UserRepository;
-import com.sistema.sistema.domain.service.AuthUseCase;
+import com.sistema.sistema.domain.usecase.AuthUseCase;
+import com.sistema.sistema.infrastructure.exception.BusinessException;
 import com.sistema.sistema.infrastructure.security.JwtTokenProvider;
-import com.sistema.sistema.shared.constants.ErrorCodes;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class AuthService implements AuthUseCase {
@@ -28,19 +28,55 @@ public class AuthService implements AuthUseCase {
     }
 
     @Override
-    public Map<String, Object> login(String email, String password) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ClientException(ErrorCodes.INVALID_CREDENTIALS, "Credenciales inválidas"));
+    public LoginResponse login(LoginRequest request) {
+        // 1. Buscar usuario por email o username
+        User user = userRepository.findByEmail(request.getEmail())
+                .or(() -> userRepository.findByUsername(request.getEmail())) // intenta username si email no existe
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
+                        "Credenciales inválidas"));
 
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new ClientException(ErrorCodes.INVALID_CREDENTIALS, "Credenciales inválidas");
+        // 2. Verificar contraseña
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED,
+                    "Credenciales inválidas");
         }
 
+        // 3. Verificar si el usuario fue eliminado lógicamente
+        if (Boolean.TRUE.equals(user.getDeleted())) {
+            throw new BusinessException(HttpStatus.FORBIDDEN,
+                    "El acceso ha sido denegado porque su cuenta ha sido eliminada. " +
+                            "Por favor, contacte al administrador para más información.");
+        }
+
+        // 4. Verificar si el usuario está desactivado
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new BusinessException(HttpStatus.FORBIDDEN,
+                    "El acceso ha sido denegado porque su cuenta está desactivada. " +
+                            "Por favor, contacte al administrador para reactivar su cuenta.");
+        }
+
+        // 5. Verificar que tenga al menos un rol y que no sea solo cliente
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            throw new BusinessException(HttpStatus.FORBIDDEN,
+                    "El usuario no tiene roles asignados y no puede acceder al sistema. " +
+                            "Por favor, contacte al administrador.");
+        }
+
+        boolean tieneSoloCliente = user.getRoles().stream()
+                .allMatch(r -> r.getId().equals(2L));
+
+        if (tieneSoloCliente) {
+            throw new BusinessException(HttpStatus.FORBIDDEN,
+                    "El rol asignado no tiene permisos para acceder al mantenedor. " +
+                            "Por favor, contacte al administrador.");
+        }
+
+        // 6. Generar token
         String token = jwtTokenProvider.generateToken(user);
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("token", token);
-        resp.put("expiresIn", jwtTokenProvider.getExpirationMs());
-        return resp;
+
+        return new LoginResponse(token);
     }
+
+
 
 }

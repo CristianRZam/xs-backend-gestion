@@ -1,5 +1,6 @@
 package com.sistema.sistema.infrastructure.security;
 
+import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.domain.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -13,7 +14,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtTokenProvider {
@@ -46,10 +49,18 @@ public class JwtTokenProvider {
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
         claims.put("username", user.getUsername());
-        claims.put("isActive", user.getIsActive());
+        claims.put("active", user.getActive());
         // Asegurar tipos serializables (listas)
-        List<String> roles = user.getRoles() != null ? new ArrayList<>(user.getRoles()) : new ArrayList<>();
-        List<String> permissions = user.getPermissions() != null ? new ArrayList<>(user.getPermissions()) : new ArrayList<>();
+        List<String> roles = user.getRoles() != null
+                ? user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList())
+                : new ArrayList<>();
+        claims.put("roles", roles);
+
+        List<String> permissions = user.getPermissions() != null
+                ? new ArrayList<>(new HashSet<>(user.getPermissions()))
+                : new ArrayList<>();
         claims.put("roles", roles);
         claims.put("permissions", permissions);
 

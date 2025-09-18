@@ -2,7 +2,10 @@ package com.sistema.sistema.infrastructure.controller;
 
 
 import com.sistema.sistema.application.dto.request.LoginRequest;
-import com.sistema.sistema.domain.service.AuthUseCase;
+import com.sistema.sistema.application.dto.response.ApiResponse;
+import com.sistema.sistema.application.dto.response.auth.LoginResponse;
+import com.sistema.sistema.domain.usecase.AuthUseCase;
+import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,10 +23,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
-        Map<String, Object> result = authUseCase.login(req.getEmail(), req.getPassword());
-        return ResponseEntity.ok(result);
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse result = authUseCase.login(request);
+        return ApiResponseFactory.success(result, "Inicio de sesión exitoso. Token generado correctamente.");
     }
+
 
 
 }

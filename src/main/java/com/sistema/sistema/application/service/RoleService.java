@@ -5,8 +5,9 @@ import com.sistema.sistema.application.dto.request.Role.RoleUpdateRequest;
 import com.sistema.sistema.application.dto.request.Role.RoleViewRequest;
 import com.sistema.sistema.application.dto.response.RoleViewResponse;
 import com.sistema.sistema.domain.model.Role;
+import com.sistema.sistema.domain.repository.PermissionRepository;
 import com.sistema.sistema.domain.repository.RoleRepository;
-import com.sistema.sistema.domain.service.RoleUseCase;
+import com.sistema.sistema.domain.usecase.RoleUseCase;
 import com.sistema.sistema.infrastructure.persistence.role.RoleMapper;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +16,14 @@ import java.util.List;
 @Service
 public class RoleService implements RoleUseCase {
     private final RoleRepository repository;
+    private final PermissionRepository repositoryPermission;
     private final RoleMapper mapper;
 
-    public RoleService(RoleRepository roleRepository, RoleMapper mapper)
+    public RoleService(RoleRepository roleRepository, PermissionRepository repositoryPermission, RoleMapper mapper)
     {
         this.repository = roleRepository;
         this.mapper = mapper;
+        this.repositoryPermission = repositoryPermission;
     }
 
     @Override
@@ -40,9 +43,7 @@ public class RoleService implements RoleUseCase {
         Long inactiveRoles = total - activeRoles;
 
         // Total de permisos
-        Long totalPermissions = roles.stream()
-                .mapToLong(r -> r.getPermissions() != null ? r.getPermissions().size() : 0)
-                .sum();
+        Long totalPermissions = (long) repositoryPermission.findByDeletedAtIsNull().size();
 
         return RoleViewResponse.builder()
                 .roles(roles)
@@ -74,11 +75,16 @@ public class RoleService implements RoleUseCase {
     @Override
     public Role update(RoleUpdateRequest request) {
         Role role = mapper.toDomain(request);
-        return repository.save(role);
+        return repository.update(role);
     }
 
     @Override
     public Boolean delete(Long id) {
         return repository.delete(id);
+    }
+
+    @Override
+    public Boolean updateStatus(Long id) {
+        return repository.updateStatus(id);
     }
 }

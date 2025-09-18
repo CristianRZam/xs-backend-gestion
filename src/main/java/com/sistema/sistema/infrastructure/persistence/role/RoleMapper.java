@@ -32,7 +32,6 @@ public class RoleMapper {
                 .id(request.getId())
                 .name(request.getName())
                 .description(request.getDescription())
-                .active(true)
                 .build();
     }
 

@@ -1,9 +1,10 @@
 package com.sistema.sistema.infrastructure.persistence.role;
 
-import com.sistema.sistema.infrastructure.persistence.user.UserEntity;
 import com.sistema.sistema.infrastructure.persistence.permission.PermissionEntity;
+import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,7 +32,6 @@ public class RoleEntity {
     @Column(nullable = false)
     private Boolean active = true;
 
-    // === Campos de auditoría ===
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -50,10 +50,8 @@ public class RoleEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // === Relaciones ===
-    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
-    @Builder.Default
-    private Set<UserEntity> users = new HashSet<>();
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<UserRoleEntity> userRoles = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -64,7 +62,6 @@ public class RoleEntity {
     @Builder.Default
     private Set<PermissionEntity> permissions = new HashSet<>();
 
-    // === Callbacks de JPA ===
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

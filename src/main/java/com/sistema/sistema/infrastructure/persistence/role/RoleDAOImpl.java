@@ -3,6 +3,7 @@ package com.sistema.sistema.infrastructure.persistence.role;
 import com.sistema.sistema.application.dto.request.Role.RoleViewRequest;
 import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.domain.repository.RoleRepository;
+import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Repository;
 
@@ -64,6 +65,31 @@ public class RoleDAOImpl implements RoleRepository {
 
         entity.setDeletedAt(LocalDateTime.now());
         entity.setDeletedBy(1L);
+
+        jpa.save(entity);
+        return true;
+    }
+
+    @Override
+    public Role update(Role request) {
+        RoleEntity existing = jpa.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("Role no encontrado"));
+
+        if (request.getName() != null) existing.setName(request.getName());
+        if (request.getDescription() != null) existing.setDescription(request.getDescription());
+
+        RoleEntity saved = jpa.save(existing);
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Boolean updateStatus(Long id) {
+        RoleEntity entity = jpa.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Rol no encontrado con id: " + id));
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        entity.setActive(!Boolean.TRUE.equals(entity.getActive()));
+        entity.setModifiedBy(currentUserId);
 
         jpa.save(entity);
         return true;

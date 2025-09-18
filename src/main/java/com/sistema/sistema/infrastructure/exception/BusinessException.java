@@ -1,16 +1,22 @@
 package com.sistema.sistema.infrastructure.exception;
 
 import lombok.Getter;
-import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-@Getter
-@AllArgsConstructor
 public class BusinessException extends RuntimeException {
-    private final HttpStatus status;
 
-    public BusinessException(String message, HttpStatus status) {
+    @Getter
+    private final HttpStatus status;
+    private final String message;
+
+    public BusinessException(HttpStatus status, String message) {
         super(message);
         this.status = status;
+        this.message = message;
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
     }
 }
