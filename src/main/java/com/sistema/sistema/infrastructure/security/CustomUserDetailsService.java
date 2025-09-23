@@ -9,6 +9,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,12 +27,27 @@ public class CustomUserDetailsService implements UserDetailsService {
         User u = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-        List<GrantedAuthority> authorities = u.getRoles() != null
-                ? u.getRoles().stream()
-                .map(Role::getName)
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList())
-                : List.of();
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // Roles como authorities con prefijo ROLE_
+        if (u.getRoles() != null) {
+            authorities.addAll(
+                    u.getRoles().stream()
+                            .map(Role::getName)
+                            .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                            .toList()
+            );
+        }
+
+        // Permisos como authorities sin prefijo
+        if (u.getPermissions() != null) {
+            authorities.addAll(
+                    u.getPermissions().stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .toList()
+            );
+        }
+
 
         return new XsUserDetails(
                 u.getId(),
@@ -41,6 +57,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 u.getActive()
         );
     }
+
 
 
 }

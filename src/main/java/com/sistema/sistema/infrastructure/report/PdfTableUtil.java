@@ -1,9 +1,6 @@
 package com.sistema.sistema.infrastructure.report;
 
-import com.lowagie.text.Element;
-import com.lowagie.text.Font;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.Rectangle;
+import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 
@@ -53,8 +50,16 @@ public class PdfTableUtil {
         PdfPTable filtersTable = new PdfPTable(2);
         filtersTable.setWidthPercentage(100);
 
+        // Fuente en negrita para los keys
+        Font boldFont = new Font(filterFont);
+        boldFont.setStyle(Font.BOLD);
+
         for (Map.Entry<String, String> entry : filters.entrySet()) {
-            PdfPCell filterCell = new PdfPCell(new Phrase(entry.getKey() + ": " + entry.getValue(), filterFont));
+            Phrase phrase = new Phrase();
+            phrase.add(new Chunk(entry.getKey() + ": ", boldFont));  // Key en negrita
+            phrase.add(new Chunk(entry.getValue(), filterFont));    // Value en normal
+
+            PdfPCell filterCell = new PdfPCell(phrase);
             filterCell.setBorder(Rectangle.NO_BORDER);
             filterCell.setHorizontalAlignment(Element.ALIGN_LEFT);
             filtersTable.addCell(filterCell);
@@ -70,4 +75,5 @@ public class PdfTableUtil {
         filtersTable.setSpacingAfter(10f);
         return filtersTable;
     }
+
 }

@@ -1,5 +1,6 @@
 package com.sistema.sistema.application.dto.response.user;
 
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.domain.model.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class UserViewResponse {
-    private List<User> users;
+    private List<UserDto> users;
+    private List<ParameterDto> typeDocuments;
     private Long totalUsers;
     private Long activeUsers;
     private Long inactiveUsers;

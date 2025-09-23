@@ -4,6 +4,9 @@ import com.sistema.sistema.application.dto.request.user.UserCreateRequest;
 import com.sistema.sistema.application.dto.request.user.UserFormRequest;
 import com.sistema.sistema.application.dto.request.user.UserUpdateRequest;
 import com.sistema.sistema.application.dto.request.user.UserViewRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
+import com.sistema.sistema.application.dto.response.role.RoleDto;
+import com.sistema.sistema.application.dto.response.user.UserDto;
 import com.sistema.sistema.application.dto.response.user.UserFormResponse;
 import com.sistema.sistema.application.dto.response.user.UserViewResponse;
 import com.sistema.sistema.domain.model.Parameter;
@@ -13,6 +16,7 @@ import com.sistema.sistema.domain.model.User;
 import com.sistema.sistema.domain.repository.*;
 import com.sistema.sistema.domain.usecase.UserUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
+import com.sistema.sistema.infrastructure.persistence.user.UserMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserUseCase {
@@ -30,41 +35,71 @@ public class UserService implements UserUseCase {
     private final PersonRepository personRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final UserMapper mapper;
+
     BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    public UserService(UserRepository userRepository, ParameterRepository parameterRepository, PersonRepository personRepository, RoleRepository roleRepository, UserRoleRepository userRoleRepository) {
+    public UserService(
+            UserRepository userRepository,
+            ParameterRepository parameterRepository,
+            PersonRepository personRepository,
+            RoleRepository roleRepository,
+            UserRoleRepository userRoleRepository,
+            UserMapper mapper
+    ) {
         this.repository = userRepository;
         this.parameterRepository = parameterRepository;
         this.personRepository = personRepository;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
+        this.mapper = mapper;
     }
 
     @Override
     public UserViewResponse init(UserViewRequest request) {
         List<User> users = repository.ByDeletedAtIsNull(request);
 
-        // Total de roles
+        // Total de usuarios
         Long total = (long) users.size();
-
-        // Contamos roles activos
-        Long activeUsers = users.stream()
-                .filter(User::getActive)
-                .count();
-
-        // Roles inactivos
+        // Contamos usuarios activos
+        Long activeUsers = users.stream() .filter(User::getActive) .count();
+        // Usuarios inactivos
         Long inactiveUsers = total - activeUsers;
+        // Usuarios con rol ADMIN (id = 1)
+        Long totalAdmins = users.stream() .filter(u -> u.getRoles() != null)
+            .filter(u -> u.getRoles().stream().anyMatch(r -> r.getId() == 1L)) .count();
+        // 🔹 Convertimos la lista de User -> UserDto con el mapper
+        List<UserDto> userDtos = users.stream() .map(mapper::toDto) .collect(Collectors.toList());
 
-        // Total de permisos
-        Long totalAdmins = 1L;
+        // Tipos de documento
+        List<Parameter> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
+        List<ParameterDto> typeDtos = types != null
+                ? types.stream()
+                .map(param -> ParameterDto.builder()
+                        .id(param.getId())
+                        .parentParameterId(param.getParentParameterId())
+                        .parameterId(param.getParameterId())
+                        .code(param.getCode())
+                        .type(param.getType())
+                        .name(param.getName())
+                        .shortName(param.getShortName())
+                        .orderNumber(param.getOrderNumber())
+                        .active(Boolean.TRUE.equals(param.getActive()))
+                        .deleted(param.getDeletedAt() != null)
+                        .build())
+                .toList()
+                : List.of();
 
         return UserViewResponse.builder()
-                .users(users)
+                .users(userDtos)
+                .typeDocuments(typeDtos)
                 .totalUsers(total)
                 .activeUsers(activeUsers)
                 .inactiveUsers(inactiveUsers)
                 .totalAdmins(totalAdmins)
                 .build();
     }
+
+
 
     @Override
     public UserFormResponse initFormData(UserFormRequest request) {
@@ -74,12 +109,67 @@ public class UserService implements UserUseCase {
         }
 
         List<Parameter> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
+        List<Role> roles = roleRepository.findAll();
+
+        UserDto userDto = null;
+        if (user != null) {
+            userDto = UserDto.builder()
+                    .id(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .active(Boolean.TRUE.equals(user.getActive()))
+                    .deleted(Boolean.TRUE.equals(user.getDeleted()))
+                    .roles(user.getRoles() != null
+                            ? user.getRoles().stream()
+                            .map(role -> RoleDto.builder()
+                                    .id(role.getId())
+                                    .name(role.getName())
+                                    .description(role.getDescription())
+                                    .active(Boolean.TRUE.equals(role.getActive()))
+                                    .deleted(role.getDeletedAt() != null)
+                                    .build()
+                            ).toList()
+                            : List.of())
+                    .person(user.getPerson())
+                    .build();
+        }
+
+        List<ParameterDto> typeDtos = types != null
+                ? types.stream().map(param -> ParameterDto.builder()
+                .id(param.getId())
+                .parentParameterId(param.getParentParameterId())
+                .parameterId(param.getParameterId())
+                .code(param.getCode())
+                .type(param.getType())
+                .name(param.getName())
+                .shortName(param.getShortName())
+                .orderNumber(param.getOrderNumber())
+                .active(Boolean.TRUE.equals(param.getActive()))
+                .deleted(param.getDeletedAt() != null)
+                .build()
+        ).toList()
+                : List.of();
+
+        List<RoleDto> roleDtos = roles != null
+                ? roles.stream().map(role -> RoleDto.builder()
+                .id(role.getId())
+                .name(role.getName())
+                .description(role.getDescription())
+                .active(Boolean.TRUE.equals(role.getActive()))
+                .deleted(role.getDeletedAt() != null)
+                .build()
+        ).toList()
+                : List.of();
 
         return UserFormResponse.builder()
-                .user(user)
-                .documentTypes(types)
+                .user(userDto)
+                .documentTypes(typeDtos)
+                .roles(roleDtos)
                 .build();
     }
+
+
+
 
     @Override
     public User getUserById(Long id) {
@@ -105,7 +195,6 @@ public class UserService implements UserUseCase {
                     "Ya existe un usuario con el nº de documento: " + request.getDocument());
         });
 
-        // 4. Validar existencia de roles antes de crear
         // 4. Validar existencia de roles antes de crear
         Set<Role> roles = new HashSet<>();
         Set<Long> faltantes = new HashSet<>();
@@ -233,6 +322,14 @@ public class UserService implements UserUseCase {
 
     @Override
     public Boolean delete(Long id) {
+        User existingUser = repository.getUserById(id);
+        if (existingUser == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND,
+                    "Usuario no encontrado con id: " + id);
+        }
+
+        personRepository.delete(existingUser.getPerson().getId());
+
         return repository.delete(id);
     }
 

@@ -1,5 +1,7 @@
 package com.sistema.sistema.infrastructure.persistence.user;
 
+import com.sistema.sistema.application.dto.response.role.RoleDto;
+import com.sistema.sistema.application.dto.response.user.UserDto;
 import com.sistema.sistema.domain.model.Person;
 import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.domain.model.User;
@@ -10,6 +12,8 @@ import com.sistema.sistema.infrastructure.persistence.person.PersonMapper;
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,8 @@ public class UserMapper {
                 .map(ur -> Role.builder()
                         .id(ur.getRole().getId())
                         .name(ur.getRole().getName())
+                        .description(ur.getRole().getDescription())
+                        .active(ur.getRole().getActive())
                         .build())
                 .collect(Collectors.toSet())
                 : Set.of();
@@ -105,5 +111,35 @@ public class UserMapper {
         }
 
         return entity;
+    }
+
+    public UserDto toDto(User user) {
+        if (user == null) return null;
+
+        List<RoleDto> roleDtos = null;
+        Set<Role> roles = user.getRoles();
+        if (roles != null) {
+            roleDtos = roles.stream()
+                    .map(r -> RoleDto.builder()
+                            .id(r.getId())
+                            .name(r.getName())
+                            .description(r.getDescription())
+                            .active(r.getActive())
+                            .deleted(r.getDeletedAt() != null || r.getDeletedBy() != null)
+                            .build()
+                    )
+                    .collect(Collectors.toList());
+
+        }
+
+        return UserDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .active(Boolean.TRUE.equals(user.getActive()))
+                .deleted(user.getDeleted())
+                .roles(roleDtos)
+                .person(user.getPerson())
+                .build();
     }
 }

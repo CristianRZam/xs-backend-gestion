@@ -17,6 +17,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
@@ -31,17 +32,20 @@ public class UserController {
         this.reportService = reportService;
     }
 
+    @PreAuthorize("hasAuthority('VIEW_USER')")
     @PostMapping("/init")
     public ResponseEntity<ApiResponse<UserViewResponse>> initRolesView(@RequestBody UserViewRequest request) {
         UserViewResponse data = userUseCase.init(request);
         return ApiResponseFactory.success(data, "Lista de usuarios y resumen cargados correctamente");
     }
 
+    @PreAuthorize("hasAuthority('CREATE_USER') or hasAuthority('EDIT_USER')")
     @PostMapping("/init-form")
     public ResponseEntity<ApiResponse<UserFormResponse>> initFormData(@RequestBody UserFormRequest request) {
         UserFormResponse data = userUseCase.initFormData(request);
         return ApiResponseFactory.success(data, "Datos de inicialización del formulario cargados correctamente");
     }
+
 
     @GetMapping("/get/{id}")
     public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable Long id) {
@@ -49,30 +53,35 @@ public class UserController {
         return ApiResponseFactory.success(user, "Usuario obtenido correctamente");
     }
 
+    @PreAuthorize("hasAuthority('CREATE_USER')")
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<User>> create(@Valid @RequestBody UserCreateRequest request) {
         User data = userUseCase.create(request);
         return ApiResponseFactory.created(data, "Usuario creado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EDIT_USER')")
     @PutMapping("/update")
     public ResponseEntity<ApiResponse<User>> update(@Valid @RequestBody UserUpdateRequest request) {
         User data = userUseCase.update(request);
         return ApiResponseFactory.success(data, "Usuario actualizado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('DELETE_USER')")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<Boolean>> delete(@PathVariable Long id) {
         Boolean response = userUseCase.delete(id);
         return ApiResponseFactory.success(response, "Usuario eliminado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EDIT_USER')")
     @PutMapping("/update-status")
     public ResponseEntity<ApiResponse<Boolean>> updateStatus(@RequestBody Long id) {
         Boolean response = userUseCase.updateStatus(id);
         return ApiResponseFactory.success(response, "Estado de usuario actualizado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EXPORT_USER')")
     @PostMapping("/export-pdf")
     public ResponseEntity<InputStreamResource> generateRolesReport(@RequestBody UserViewRequest request) {
         byte[] pdf = reportService.generatePdfReport(request, "usuario_demo");
@@ -87,6 +96,7 @@ public class UserController {
                 .body(resource);
     }
 
+    @PreAuthorize("hasAuthority('EXPORT_USER')")
     @PostMapping("/export-excel")
     public ResponseEntity<InputStreamResource> generateRolesExcel(@RequestBody UserViewRequest request) {
         byte[] excel = reportService.generateExcelReport(request, "usuario_demo");

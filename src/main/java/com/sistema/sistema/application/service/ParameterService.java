@@ -100,4 +100,9 @@ public class ParameterService implements ParameterUseCase {
     public Boolean updateStatus(Long id) {
         return repository.updateStatus(id);
     }
+
+    @Override
+    public List<Parameter> getListParameterByCode(String code) {
+        return repository.getListParameterByCode(code);
+    }
 }

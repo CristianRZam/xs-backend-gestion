@@ -10,4 +10,6 @@ public interface PersonRepository {
     Person save(Person person);
 
     Optional<Person> findByDocument(String document);
+
+    boolean delete(Long id);
 }

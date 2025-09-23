@@ -19,4 +19,5 @@ public interface ParameterUseCase {
     Parameter update(@Valid ParameterUpdateRequest request);
     boolean delete(Long id);
     Boolean updateStatus(Long id);
+    List<Parameter> getListParameterByCode(String code);
 }

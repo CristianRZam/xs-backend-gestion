@@ -23,7 +23,7 @@ public class PersonEntity {
     @Column(name = "type_document")
     private Long typeDocument;
 
-    @Column(unique = true, length = 20)
+    @Column(length = 20)
     private String document;
 
     @Column(nullable = false, length = 255)

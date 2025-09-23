@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -44,8 +45,12 @@ public class SecurityConfig {
                                 "/swagger-ui/index.html"
                         ).permitAll()
                         .requestMatchers("/api/login").permitAll()
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/user/create").hasAuthority("CREATE_USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/user/update").hasAuthority("EDIT_USER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/user/delete/**").hasAuthority("DELETE_USER")
+                        .requestMatchers(HttpMethod.POST, "/api/user/init").hasAuthority("VIEW_USER")
+                        .requestMatchers(HttpMethod.POST, "/api/user/init-form").hasAnyAuthority("CREATE_USER", "EDIT_USER")
+                        .anyRequest().authenticated()
                 );
 
         http.addFilterBefore(jwtAuthenticationFilter(),
@@ -53,6 +58,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {

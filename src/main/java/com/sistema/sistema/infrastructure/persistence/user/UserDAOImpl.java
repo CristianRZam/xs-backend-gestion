@@ -9,10 +9,18 @@ import com.sistema.sistema.infrastructure.persistence.parameter.ParameterEntity;
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Repository;
 
+import java.awt.print.Pageable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -20,6 +28,9 @@ import java.util.stream.Collectors;
 
 @Repository
 public class UserDAOImpl implements UserRepository{
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final JpaUserRepository jpa;
     private final UserMapper mapper;
@@ -122,18 +133,69 @@ public class UserDAOImpl implements UserRepository{
 
     @Override
     public List<User> ByDeletedAtIsNull(UserViewRequest request) {
-        List<UserEntity> entities;
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<UserEntity> cq = cb.createQuery(UserEntity.class);
+        Root<UserEntity> user = cq.from(UserEntity.class);
 
-        if (request.getName() == null || request.getName().isEmpty()) {
-            entities = jpa.findByDeletedAtIsNullOrderByIdAsc();
-        } else {
-            entities = jpa.findByDeletedAtIsNullAndUsernameContainingIgnoreCaseOrderByIdAsc(request.getName());
+        // JOIN con person
+        Join<Object, Object> person = user.join("person", JoinType.LEFT);
+
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Usuarios no eliminados
+        predicates.add(cb.isNull(user.get("deletedAt")));
+
+        // Filtrar por typeDocuments (lista)
+        if (request.getTypeDocuments() != null && !request.getTypeDocuments().isEmpty()) {
+            predicates.add(person.get("typeDocument").in(request.getTypeDocuments()));
         }
+
+        // Filtrar por Nº documento
+        if (request.getDocument() != null && !request.getDocument().isEmpty()) {
+            predicates.add(cb.like(cb.lower(person.get("document")), "%" + request.getDocument().toLowerCase() + "%"));
+        }
+
+        // Filtrar por nombre completo
+        if (request.getFullName() != null && !request.getFullName().isEmpty()) {
+            predicates.add(cb.like(cb.lower(person.get("fullName")), "%" + request.getFullName().toLowerCase() + "%"));
+        }
+
+        // Filtrar por username
+        if (request.getUsername() != null && !request.getUsername().isEmpty()) {
+            predicates.add(cb.like(cb.lower(user.get("username")), "%" + request.getUsername().toLowerCase() + "%"));
+        }
+
+        // Filtrar por email
+        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+            predicates.add(cb.like(cb.lower(user.get("email")), "%" + request.getEmail().toLowerCase() + "%"));
+        }
+
+        // Filtrar por estado (habilitado/inabilitado) solo si viene en request
+        if (request.getStatus() != null) {
+            if (request.getStatus()) {
+                predicates.add(cb.isTrue(user.get("active")));
+            } else {
+                predicates.add(cb.isFalse(user.get("active")));
+            }
+        }
+
+
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.asc(user.get("id")));
+
+        TypedQuery<UserEntity> query = entityManager.createQuery(cq);
+
+        // Paginación
+        query.setFirstResult(request.getPage() * request.getSize());
+        query.setMaxResults(request.getSize());
+
+        List<UserEntity> entities = query.getResultList();
 
         return entities.stream()
                 .map(mapper::toDomain)
                 .toList();
     }
+
 
     @Override
     public User getUserById(Long id) {
