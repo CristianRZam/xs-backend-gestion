@@ -2,18 +2,20 @@ package com.sistema.sistema.infrastructure.persistence.user;
 
 import com.sistema.sistema.application.dto.response.role.RoleDto;
 import com.sistema.sistema.application.dto.response.user.UserDto;
-import com.sistema.sistema.domain.model.Person;
-import com.sistema.sistema.domain.model.Role;
-import com.sistema.sistema.domain.model.User;
+import com.sistema.sistema.application.dto.response.user.UserRoleDTO;
+import com.sistema.sistema.domain.model.*;
 import com.sistema.sistema.infrastructure.persistence.parameter.JpaParameterRepository;
 import com.sistema.sistema.infrastructure.persistence.parameter.ParameterEntity;
-import com.sistema.sistema.infrastructure.persistence.permission.PermissionEntity;
+import com.sistema.sistema.infrastructure.persistence.permission.PermissionMapper;
 import com.sistema.sistema.infrastructure.persistence.person.PersonMapper;
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
+import com.sistema.sistema.infrastructure.persistence.rolepermission.RolePermissionEntity;
 import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -22,34 +24,55 @@ public class UserMapper {
 
     private final JpaParameterRepository jpaParameterRepository;
     private final PersonMapper personMapper;
+    private final PermissionMapper permissionMapper;
 
-    public UserMapper(JpaParameterRepository jpaParameterRepository, PersonMapper personMapper) {
+    public UserMapper(JpaParameterRepository jpaParameterRepository, PersonMapper personMapper, PermissionMapper permissionMapper) {
         this.jpaParameterRepository = jpaParameterRepository;
         this.personMapper = personMapper;
+        this.permissionMapper = permissionMapper;
     }
 
     public User toDomain(UserEntity e) {
         if (e == null) return null;
 
-        // Roles (desde la entidad intermedia UserRoleEntity)
-        Set<Role> roles = e.getUserRoles() != null
+        // Mapear roles
+        Set<UserRole> userRoles = e.getUserRoles() != null
                 ? e.getUserRoles().stream()
-                .filter(ur -> ur.getDeletedAt() == null)
-                .map(ur -> Role.builder()
-                        .id(ur.getRole().getId())
-                        .name(ur.getRole().getName())
-                        .description(ur.getRole().getDescription())
-                        .active(ur.getRole().getActive())
-                        .build())
-                .collect(Collectors.toSet())
-                : Set.of();
+                .filter(ur -> ur.getDeletedAt() == null) // solo user_roles activos
+                .map(ur -> {
+                    RoleEntity roleEntity = ur.getRole();
+                    if (roleEntity == null) return null;
 
-        // Permisos
-        Set<String> permissions = e.getUserRoles() != null
-                ? e.getUserRoles().stream()
-                .filter(ur -> ur.getDeletedAt() == null)
-                .flatMap(ur -> ur.getRole().getPermissions().stream())
-                .map(PermissionEntity::getName)
+                    // Permisos del rol
+                    List<Permission> permissions = roleEntity.getRolePermissions() != null
+                            ? roleEntity.getRolePermissions().stream()
+                            .filter(rp -> rp.getDeletedAt() == null) // solo permisos activos
+                            .map(RolePermissionEntity::getPermission)
+                            .map(permissionMapper::toDomain)
+                            .collect(Collectors.toList())
+                            : List.of();
+
+                    Role role = Role.builder()
+                            .id(roleEntity.getId())
+                            .name(roleEntity.getName())
+                            .description(roleEntity.getDescription())
+                            .active(roleEntity.getActive())
+                            .permissions(permissions)
+                            .createdBy(roleEntity.getCreatedBy())
+                            .createdAt(roleEntity.getCreatedAt())
+                            .modifiedBy(roleEntity.getModifiedBy())
+                            .modifiedAt(roleEntity.getModifiedAt())
+                            .deletedBy(roleEntity.getDeletedBy())
+                            .deletedAt(roleEntity.getDeletedAt())
+                            .build();
+
+                    return UserRole.builder()
+                            .id(ur.getId())
+                            .deleted(ur.getDeletedAt() != null)
+                            .role(role)
+                            .build();
+                })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet())
                 : Set.of();
 
@@ -78,11 +101,13 @@ public class UserMapper {
                 .password(e.getPassword())
                 .active(e.getActive())
                 .deleted(e.getDeletedAt() != null)
-                .roles(roles)
-                .permissions(permissions)
+                .roles(userRoles)
                 .person(person)
                 .build();
     }
+
+
+
 
     public UserEntity toEntity(User d) {
         if (d == null) return null;
@@ -96,16 +121,17 @@ public class UserMapper {
                 .person(d.getPerson() != null ? personMapper.toEntity(d.getPerson()) : null)
                 .build();
 
-        // Mapear roles a UserRoleEntity
         if (d.getRoles() != null && !d.getRoles().isEmpty()) {
             entity.setUserRoles(d.getRoles().stream()
-                    .map(r -> UserRoleEntity.builder()
+                    .map(ur -> UserRoleEntity.builder()
+                            .id(ur.getId())
                             .user(entity)
                             .role(RoleEntity.builder()
-                                    .id(r.getId())
-                                    .name(r.getName())
+                                    .id(ur.getRole().getId())
+                                    .name(ur.getRole().getName())
                                     .build())
-                            .assignedBy(1L) // por defecto, o se puede pasar dinámicamente
+                            .assignedBy(1L) // se puede parametrizar
+                            .deletedAt(ur.getDeleted() != null && ur.getDeleted() ? LocalDateTime.now() : null)
                             .build())
                     .collect(Collectors.toSet()));
         }
@@ -116,20 +142,32 @@ public class UserMapper {
     public UserDto toDto(User user) {
         if (user == null) return null;
 
-        List<RoleDto> roleDtos = null;
-        Set<Role> roles = user.getRoles();
-        if (roles != null) {
-            roleDtos = roles.stream()
-                    .map(r -> RoleDto.builder()
-                            .id(r.getId())
-                            .name(r.getName())
-                            .description(r.getDescription())
-                            .active(r.getActive())
-                            .deleted(r.getDeletedAt() != null || r.getDeletedBy() != null)
-                            .build()
-                    )
-                    .collect(Collectors.toList());
+        List<UserRoleDTO> userRoleDtos = null;
+        Set<UserRole> userRoles = user.getRoles();
 
+        if (userRoles != null) {
+            userRoleDtos = userRoles.stream()
+                    .map(ur -> {
+                        Role role = ur.getRole();
+                        RoleDto roleDto = null;
+
+                        if (role != null) {
+                            roleDto = RoleDto.builder()
+                                    .id(role.getId())
+                                    .name(role.getName())
+                                    .description(role.getDescription())
+                                    .active(role.getActive())
+                                    .deleted(role.getDeletedAt() != null || role.getDeletedBy() != null)
+                                    .build();
+                        }
+
+                        return UserRoleDTO.builder()
+                                .id(ur.getId())
+                                .role(roleDto)
+                                .deleted(Boolean.TRUE.equals(ur.getDeleted()))
+                                .build();
+                    })
+                    .collect(Collectors.toList());
         }
 
         return UserDto.builder()
@@ -138,8 +176,9 @@ public class UserMapper {
                 .email(user.getEmail())
                 .active(Boolean.TRUE.equals(user.getActive()))
                 .deleted(user.getDeleted())
-                .roles(roleDtos)
+                .userRoles(userRoleDtos)
                 .person(user.getPerson())
                 .build();
     }
+
 }

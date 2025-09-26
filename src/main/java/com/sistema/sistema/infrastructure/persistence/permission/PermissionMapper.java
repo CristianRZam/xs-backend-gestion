@@ -15,6 +15,19 @@ public class PermissionMapper {
                 .id(e.getId())
                 .name(e.getName())
                 .description(e.getDescription())
+                .module(e.getModule())
+                .build();
+    }
+
+    // Domain → Entity
+    public PermissionEntity toEntity(Permission d) {
+        if (d == null) return null;
+
+        return PermissionEntity.builder()
+                .id(d.getId())
+                .name(d.getName())
+                .description(d.getDescription())
+                .module(d.getModule())
                 .build();
     }
 }

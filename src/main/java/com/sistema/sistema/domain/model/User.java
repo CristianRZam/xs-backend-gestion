@@ -18,6 +18,5 @@ public class User {
     private String password;
     private Boolean active;
     private Boolean deleted;
-    private Set<Role> roles;
-    private Set<String> permissions;
+    private Set<UserRole> roles;
 }

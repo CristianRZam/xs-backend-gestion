@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -18,7 +19,7 @@ public class Role {
     private String name;
     private String description;
     private Boolean active;
-    private Set<String> permissions;
+    private List<Permission> permissions;
 
     // === Campos de auditoría ===
     private Long createdBy;

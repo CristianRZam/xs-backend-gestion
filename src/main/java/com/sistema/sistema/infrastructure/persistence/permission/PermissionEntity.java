@@ -3,8 +3,6 @@ package com.sistema.sistema.infrastructure.persistence.permission;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
-import java.util.Set;
-import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 
 @Entity
 @Table(name = "permissions")
@@ -26,6 +24,9 @@ public class PermissionEntity {
     @Column(length = 255)
     private String description;
 
+    @Column(length = 255)
+    private String module;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -44,10 +45,6 @@ public class PermissionEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // Relación muchos a muchos con roles
-    @ManyToMany(mappedBy = "permissions", fetch = FetchType.LAZY)
-    private Set<RoleEntity> roles;
-
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -56,6 +53,6 @@ public class PermissionEntity {
 
     @PreUpdate
     protected void onUpdate() {
-        modifiedAt= LocalDateTime.now();
+        modifiedAt = LocalDateTime.now();
     }
 }

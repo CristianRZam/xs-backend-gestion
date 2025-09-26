@@ -9,9 +9,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Permission {
+public class UserRole {
     private Long id;
-    private String name;
-    private String description;
-    private String module;
+    private Role role;
+    private Boolean deleted;
 }

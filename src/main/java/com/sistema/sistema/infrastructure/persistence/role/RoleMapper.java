@@ -1,11 +1,15 @@
 package com.sistema.sistema.infrastructure.persistence.role;
 
 import com.sistema.sistema.application.dto.request.Role.RoleUpdateRequest;
+import com.sistema.sistema.application.dto.response.role.RoleDto;
 import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.infrastructure.persistence.permission.PermissionEntity;
+import com.sistema.sistema.infrastructure.persistence.permission.PermissionMapper;
+import com.sistema.sistema.infrastructure.persistence.rolepermission.RolePermissionEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -14,6 +18,11 @@ import com.sistema.sistema.application.dto.request.Role.RoleCreateRequest;
 @Component
 public class RoleMapper {
 
+    private final PermissionMapper permissionMapper;
+
+    public RoleMapper(PermissionMapper permissionMapper) {
+        this.permissionMapper = permissionMapper;
+    }
     // DTO → Domain
     public Role toDomain(RoleCreateRequest request) {
         if (request == null) return null;
@@ -53,29 +62,26 @@ public class RoleMapper {
                 .deletedBy(e.getDeletedBy())
                 .deletedAt(e.getDeletedAt())
 
-                // Permisos
+                // Permisos desde rolePermissions (solo activos)
                 .permissions(
-                        e.getPermissions()
-                                .stream()
-                                .map(PermissionEntity::getName)
-                                .collect(Collectors.toSet())
+                        e.getRolePermissions() != null
+                                ? e.getRolePermissions().stream()
+                                .filter(rp -> rp.getDeletedAt() == null) // solo si no están eliminados
+                                .map(RolePermissionEntity::getPermission)
+                                .map(permissionMapper::toDomain)
+                                .collect(Collectors.toList())
+                                : List.of()
                 )
                 .build();
     }
+
+
 
     // Domain → Entity
     public RoleEntity toEntity(Role d) {
         if (d == null) return null;
 
-        Set<PermissionEntity> permissions = new HashSet<>();
-        if (d.getPermissions() != null) {
-            permissions = d.getPermissions()
-                    .stream()
-                    .map(name -> PermissionEntity.builder().name(name).build())
-                    .collect(Collectors.toSet());
-        }
-
-        return RoleEntity.builder()
+        RoleEntity roleEntity = RoleEntity.builder()
                 .id(d.getId())
                 .name(d.getName())
                 .description(d.getDescription())
@@ -89,7 +95,34 @@ public class RoleMapper {
                 .deletedBy(d.getDeletedBy())
                 .deletedAt(d.getDeletedAt())
 
-                .permissions(permissions)
+                .build();
+
+        // reconstruir RolePermissions desde las Permissions del dominio
+        if (d.getPermissions() != null) {
+            Set<RolePermissionEntity> rolePermissions = d.getPermissions().stream()
+                    .map(permissionMapper::toEntity)
+                    .map(p -> RolePermissionEntity.builder()
+                            .role(roleEntity)
+                            .permission(p)
+                            .deletedAt(null) // al crear se asume activo
+                            .build())
+                    .collect(Collectors.toSet());
+            roleEntity.setRolePermissions(rolePermissions);
+        }
+
+        return roleEntity;
+    }
+
+
+    public RoleDto toDto(Role role) {
+        if (role == null) return null;
+
+        return RoleDto.builder()
+                .id(role.getId())
+                .name(role.getName())
+                .description(role.getDescription())
+                .active(role.getActive())
+                .deleted(role.getDeletedAt() != null)
                 .build();
     }
 }

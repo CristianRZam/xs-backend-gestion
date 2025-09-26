@@ -14,4 +14,12 @@ public class SecurityUtil {
         }
         return null;
     }
+
+    public static String getCurrentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof XsUserDetails) {
+            return ((XsUserDetails) authentication.getPrincipal()).getUsername();
+        }
+        return null;
+    }
 }

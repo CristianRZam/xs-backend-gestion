@@ -84,7 +84,7 @@ public class UserController {
     @PreAuthorize("hasAuthority('EXPORT_USER')")
     @PostMapping("/export-pdf")
     public ResponseEntity<InputStreamResource> generateRolesReport(@RequestBody UserViewRequest request) {
-        byte[] pdf = reportService.generatePdfReport(request, "usuario_demo");
+        byte[] pdf = reportService.generatePdfReport(request);
 
         ByteArrayInputStream bis = new ByteArrayInputStream(pdf);
         InputStreamResource resource = new InputStreamResource(bis);
@@ -99,7 +99,7 @@ public class UserController {
     @PreAuthorize("hasAuthority('EXPORT_USER')")
     @PostMapping("/export-excel")
     public ResponseEntity<InputStreamResource> generateRolesExcel(@RequestBody UserViewRequest request) {
-        byte[] excel = reportService.generateExcelReport(request, "usuario_demo");
+        byte[] excel = reportService.generateExcelReport(request);
 
         ByteArrayInputStream bis = new ByteArrayInputStream(excel);
         InputStreamResource resource = new InputStreamResource(bis);

@@ -28,11 +28,9 @@ public class RolePermissionEntity {
     @JoinColumn(name = "permission_id")
     private PermissionEntity permission;
 
-    // Fecha en que se asignó originalmente
     @Column(name = "assigned_at", nullable = false)
     private LocalDateTime assignedAt = LocalDateTime.now();
 
-    // Campos de auditoría
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -51,7 +49,6 @@ public class RolePermissionEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // Callback para manejar timestamps automáticamente
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

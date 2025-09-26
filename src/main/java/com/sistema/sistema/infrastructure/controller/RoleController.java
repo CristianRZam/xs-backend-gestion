@@ -14,6 +14,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
@@ -30,6 +31,7 @@ public class RoleController {
         this.reportService = reportService;
     }
 
+    @PreAuthorize("hasAuthority('VIEW_ROLE')")
     @PostMapping("/init")
     public ResponseEntity<ApiResponse<RoleViewResponse>> initRolesView(@RequestBody RoleViewRequest request) {
         RoleViewResponse data = roleUseCase.init(request);
@@ -42,33 +44,38 @@ public class RoleController {
         return ApiResponseFactory.success(role, "Rol obtenido correctamente");
     }
 
+    @PreAuthorize("hasAuthority('CREATE_ROLE')")
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<Role>> create(@Valid @RequestBody RoleCreateRequest request) {
         Role createdRole = roleUseCase.create(request);
         return ApiResponseFactory.created(createdRole, "Rol creado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EDIT_ROLE')")
     @PutMapping("/update")
     public ResponseEntity<ApiResponse<Role>> update(@Valid @RequestBody RoleUpdateRequest request) {
         Role createdRole = roleUseCase.update(request);
         return ApiResponseFactory.success(createdRole, "Rol actualizado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('DELETE_ROLE')")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<Boolean>> delete(@PathVariable Long id) {
         boolean response = roleUseCase.delete(id);
         return ApiResponseFactory.success(response, "Rol eliminado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EDIT_ROLE')")
     @PutMapping("/update-status")
     public ResponseEntity<ApiResponse<Boolean>> updateStatus(@RequestBody Long id) {
         Boolean response = roleUseCase.updateStatus(id);
         return ApiResponseFactory.success(response, "Estado de rol actualizado correctamente");
     }
 
+    @PreAuthorize("hasAuthority('EXPORT_ROLE')")
     @PostMapping("/export-pdf")
     public ResponseEntity<InputStreamResource> generateRolesReport(@RequestBody RoleViewRequest request) {
-        byte[] pdf = reportService.generatePdfReport(request, "usuario_demo");
+        byte[] pdf = reportService.generatePdfReport(request);
 
         ByteArrayInputStream bis = new ByteArrayInputStream(pdf);
         InputStreamResource resource = new InputStreamResource(bis);
@@ -80,9 +87,10 @@ public class RoleController {
                 .body(resource);
     }
 
+    @PreAuthorize("hasAuthority('EXPORT_ROLE')")
     @PostMapping("/export-excel")
     public ResponseEntity<InputStreamResource> generateRolesExcel(@RequestBody RoleViewRequest request) {
-        byte[] excel = reportService.generateExcelReport(request, "usuario_demo");
+        byte[] excel = reportService.generateExcelReport(request);
 
         ByteArrayInputStream bis = new ByteArrayInputStream(excel);
         InputStreamResource resource = new InputStreamResource(bis);

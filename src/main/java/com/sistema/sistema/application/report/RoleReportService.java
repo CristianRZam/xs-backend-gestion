@@ -7,6 +7,7 @@ import com.sistema.sistema.application.dto.request.Role.RoleViewRequest;
 import com.sistema.sistema.application.dto.response.RoleViewResponse;
 import com.sistema.sistema.domain.usecase.RoleUseCase;
 import com.sistema.sistema.infrastructure.report.*;
+import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Font;
@@ -28,17 +29,13 @@ public class RoleReportService {
     }
 
     // 📌 Generación de PDF
-    public byte[] generatePdfReport(RoleViewRequest request, String username) {
+    public byte[] generatePdfReport(RoleViewRequest request) {
         RoleViewResponse response = roleUseCase.init(request);
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
             // ---- Construcción dinámica de filtros ----
-            Map<String, String> filters = new LinkedHashMap<>();
-            if (request.getName() != null && !request.getName().isBlank()) {
-                filters.put("Nombre", request.getName());
-            }
-
+            Map<String, String> filters = buildFilters(request);
             boolean hasFilters = !filters.isEmpty();
 
             // Calcular margen superior dinámico
@@ -51,7 +48,8 @@ public class RoleReportService {
             PdfWriter writer = PdfWriter.getInstance(document, baos);
 
             // Header (sin filtros, solo título y usuario)
-            writer.setPageEvent(new PdfReportUtil("Reporte de Roles", username));
+            String currentUserUsername = SecurityUtil.getCurrentUsername();
+            writer.setPageEvent(new PdfReportUtil("Reporte de Roles", currentUserUsername));
 
             document.open();
 
@@ -111,7 +109,7 @@ public class RoleReportService {
     }
 
     // 📌 Generación de Excel
-    public byte[] generateExcelReport(RoleViewRequest request, String username) {
+    public byte[] generateExcelReport(RoleViewRequest request) {
         RoleViewResponse response = roleUseCase.init(request);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -121,18 +119,15 @@ public class RoleReportService {
             int rowIdx = 0;
 
             // ---- Encabezado (utilidad) ----
-            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Roles", username, 3);
+            String currentUserUsername = SecurityUtil.getCurrentUsername();
+            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Roles", currentUserUsername, 3);
             rowIdx = sheet.getLastRowNum() + 2;
 
             CellStyle bodyStyle = workbook.createCellStyle();
             bodyStyle.setWrapText(true);
 
             // ---- Filtros aplicados ----
-            Map<String, String> filters = new LinkedHashMap<>();
-            if (request.getName() != null && !request.getName().isBlank()) {
-                filters.put("Nombre", request.getName());
-            }
-
+            Map<String, String> filters = buildFilters(request);
             if (!filters.isEmpty()) {
                 // Estilo negrita
                 CellStyle boldStyle = workbook.createCellStyle();
@@ -149,7 +144,7 @@ public class RoleReportService {
                     Row filterRow = sheet.createRow(rowIdx++);
                     Cell keyCell = filterRow.createCell(0);
                     keyCell.setCellValue(entry.getKey());
-                    keyCell.setCellStyle(boldStyle); // <-- título del filtro en negrita
+                    keyCell.setCellStyle(boldStyle);
 
                     filterRow.createCell(1).setCellValue(entry.getValue());
                 }
@@ -172,7 +167,6 @@ public class RoleReportService {
                     alignments,
                     (short) 11
             );
-
 
             // Definir alineaciones por columna
             HorizontalAlignment[] dataAlignments = {
@@ -203,7 +197,6 @@ public class RoleReportService {
                 sheet.autoSizeColumn(i);
             }
 
-
             // Guardar en bytes
             workbook.write(baos);
             return baos.toByteArray();
@@ -213,4 +206,18 @@ public class RoleReportService {
         }
     }
 
+    // 📌 Método privado para construir filtros (evita duplicación)
+    private Map<String, String> buildFilters(RoleViewRequest request) {
+        Map<String, String> filters = new LinkedHashMap<>();
+        if (request.getName() != null && !request.getName().isBlank()) {
+            filters.put("Nombre", request.getName());
+        }
+        if (request.getDescription() != null && !request.getDescription().isBlank()) {
+            filters.put("Descripción", request.getDescription());
+        }
+        if (request.getStatus() != null) {
+            filters.put("Estado", request.getStatus() ? "Habilitado" : "Inhabilitado");
+        }
+        return filters;
+    }
 }

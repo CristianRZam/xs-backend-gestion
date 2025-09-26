@@ -7,6 +7,7 @@ import com.sistema.sistema.domain.usecase.PermissionUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,12 +18,14 @@ public class PermissionController {
         this.permissionUseCase = permissionUseCase;
     }
 
+    @PreAuthorize("hasAuthority('VIEW_PERMISSION')")
     @GetMapping("/get-by-role/{id}")
     public ResponseEntity<ApiResponse<PermissionViewResponse>> getByRoleId(@PathVariable Long id) {
         PermissionViewResponse response = permissionUseCase.getByRoleId(id);
         return ApiResponseFactory.success(response, "Rol obtenido correctamente");
     }
 
+    @PreAuthorize("hasAuthority('ASSIGN_PERMISSION')")
     @PutMapping("/update-permission-by-role")
     public ResponseEntity<ApiResponse<Boolean>> updatePermissionByRole(@Valid @RequestBody PermissionUpdateRequest request) {
         Boolean response = permissionUseCase.updatePermissionByRole(request);

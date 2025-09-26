@@ -31,7 +31,7 @@ public class AuthService implements AuthUseCase {
     public LoginResponse login(LoginRequest request) {
         // 1. Buscar usuario por email o username
         User user = userRepository.findByEmail(request.getEmail())
-                .or(() -> userRepository.findByUsername(request.getEmail())) // intenta username si email no existe
+                .or(() -> userRepository.findByUsername(request.getEmail()))
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED,
                         "Credenciales inválidas"));
 
@@ -59,15 +59,6 @@ public class AuthService implements AuthUseCase {
         if (user.getRoles() == null || user.getRoles().isEmpty()) {
             throw new BusinessException(HttpStatus.FORBIDDEN,
                     "El usuario no tiene roles asignados y no puede acceder al sistema. " +
-                            "Por favor, contacte al administrador.");
-        }
-
-        boolean tieneSoloCliente = user.getRoles().stream()
-                .allMatch(r -> r.getId().equals(2L));
-
-        if (tieneSoloCliente) {
-            throw new BusinessException(HttpStatus.FORBIDDEN,
-                    "El rol asignado no tiene permisos para acceder al mantenedor. " +
                             "Por favor, contacte al administrador.");
         }
 

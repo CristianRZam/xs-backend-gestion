@@ -4,8 +4,8 @@ package com.sistema.sistema.infrastructure.persistence.user;
 import com.sistema.sistema.application.dto.request.user.UserViewRequest;
 import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.domain.model.User;
+import com.sistema.sistema.domain.model.UserRole;
 import com.sistema.sistema.domain.repository.UserRepository;
-import com.sistema.sistema.infrastructure.persistence.parameter.ParameterEntity;
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
@@ -14,11 +14,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Repository;
 
-import java.awt.print.Pageable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,11 +39,13 @@ public class UserDAOImpl implements UserRepository{
 
     @Override
     public Optional<User> findByEmail(String email) {
+        Optional<UserEntity> d = jpa.findByEmailWithRolesAndPerson(email);
         return jpa.findByEmailWithRolesAndPerson(email).map(mapper::toDomain);
     }
 
     @Override
     public Optional<User> findByUsername(String username) {
+        Optional<UserEntity> d = jpa.findByUsernameWithRolesAndPerson(username);
         return jpa.findByUsernameWithRolesAndPerson(username).map(mapper::toDomain);
     }
 
@@ -68,11 +67,13 @@ public class UserDAOImpl implements UserRepository{
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + existingUser.getId()));
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
+        LocalDateTime now = LocalDateTime.now();
 
         // --- Actualizar usuario ---
         entity.setUsername(existingUser.getUsername());
         entity.setEmail(existingUser.getEmail());
         entity.setModifiedBy(currentUserId);
+        entity.setModifiedAt(now);
 
         // --- Actualizar persona ---
         if (entity.getPerson() != null && existingUser.getPerson() != null) {
@@ -81,45 +82,53 @@ public class UserDAOImpl implements UserRepository{
             entity.getPerson().setFullName(existingUser.getPerson().getFullName());
             entity.getPerson().setPhone(existingUser.getPerson().getPhone());
             entity.getPerson().setAddress(existingUser.getPerson().getAddress());
+            entity.getPerson().setModifiedBy(currentUserId);
+            entity.getPerson().setModifiedAt(now);
         }
 
         // --- Actualizar roles ---
+        // IDs de roles que llegan en la request
         Set<Long> rolesEnviados = existingUser.getRoles().stream()
-                .map(Role::getId)
+                .map(userRole -> userRole.getRole().getId())
                 .collect(Collectors.toSet());
 
-        // 1. Marcar eliminados los que no vienen
+        // 1. Marcar como eliminados los roles que ya no están
         for (UserRoleEntity ur : entity.getUserRoles()) {
             if (!rolesEnviados.contains(ur.getRole().getId()) && ur.getDeletedAt() == null) {
                 ur.setModifiedBy(currentUserId);
-                ur.setDeletedAt(LocalDateTime.now());
+                ur.setModifiedAt(now);
+                ur.setDeletedAt(now);
                 ur.setDeletedBy(currentUserId);
             }
         }
 
-        // 2. Agregar o reactivar roles
-        for (Role role : existingUser.getRoles()) {
-            Optional<UserRoleEntity> existente = entity.getUserRoles()
-                    .stream()
-                    .filter(ur -> ur.getRole().getId().equals(role.getId()))
+        // 2. Agregar o reactivar roles enviados
+        for (UserRole userRole : existingUser.getRoles()) {
+            Long roleId = userRole.getRole().getId();
+
+            Optional<UserRoleEntity> existente = entity.getUserRoles().stream()
+                    .filter(ur -> ur.getRole().getId().equals(roleId))
                     .findFirst();
 
             if (existente.isPresent()) {
-                if (existente.get().getDeletedAt() != null) {
-                    existente.get().setModifiedBy(currentUserId);
-                    existente.get().setDeletedAt(null); // reactivar
-                    existente.get().setDeletedBy(null);
+                UserRoleEntity ur = existente.get();
+                if (ur.getDeletedAt() != null) {
+                    ur.setModifiedBy(currentUserId);
+                    ur.setModifiedAt(now);
+                    ur.setDeletedAt(null); // reactivar
+                    ur.setDeletedBy(null);
                 }
             } else {
                 RoleEntity roleRef = new RoleEntity();
-                roleRef.setId(role.getId());
+                roleRef.setId(roleId);
 
                 UserRoleEntity nuevo = UserRoleEntity.builder()
                         .user(entity)
                         .role(roleRef)
                         .assignedBy(currentUserId)
+                        .assignedAt(now)
                         .createdBy(currentUserId)
-                        .assignedAt(LocalDateTime.now())
+                        .createdAt(now)
                         .build();
 
                 entity.getUserRoles().add(nuevo);
@@ -129,6 +138,7 @@ public class UserDAOImpl implements UserRepository{
         UserEntity updated = jpa.save(entity);
         return mapper.toDomain(updated);
     }
+
 
 
     @Override

@@ -12,6 +12,7 @@ import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.usecase.ParameterUseCase;
 import com.sistema.sistema.domain.usecase.UserUseCase;
 import com.sistema.sistema.infrastructure.report.*;
+import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,7 @@ public class UserReportService {
     }
 
     // 📌 Generación de PDF
-    public byte[] generatePdfReport(UserViewRequest request, String username) {
+    public byte[] generatePdfReport(UserViewRequest request) {
         UserViewResponse response = userUseCase.init(request);
         Map<String, String> filters = buildFilters(request);
 
@@ -83,7 +84,8 @@ public class UserReportService {
 
             Document document = new Document(PageSize.A4, 36, 36, marginTop, 36);
             PdfWriter writer = PdfWriter.getInstance(document, baos);
-            writer.setPageEvent(new PdfReportUtil("Reporte de usuarios", username));
+            String currentUserUsername = SecurityUtil.getCurrentUsername();
+            writer.setPageEvent(new PdfReportUtil("Reporte de usuarios", currentUserUsername));
 
             document.open();
 
@@ -148,7 +150,7 @@ public class UserReportService {
     }
 
     // 📌 Generación de Excel
-    public byte[] generateExcelReport(UserViewRequest request, String username) {
+    public byte[] generateExcelReport(UserViewRequest request) {
         UserViewResponse response = userUseCase.init(request);
         Map<String, String> filters = buildFilters(request);
 
@@ -157,7 +159,8 @@ public class UserReportService {
             int rowIdx = 0;
 
             // ---- Encabezado ----
-            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Usuarios", username, 6);
+            String currentUserUsername = SecurityUtil.getCurrentUsername();
+            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Usuarios", currentUserUsername, 6);
             rowIdx = sheet.getLastRowNum() + 2;
 
             // ---- Filtros aplicados ----

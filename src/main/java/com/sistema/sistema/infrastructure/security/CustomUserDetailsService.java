@@ -10,7 +10,9 @@ import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,39 +27,40 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User u = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
 
-        List<GrantedAuthority> authorities = new ArrayList<>();
+        Set<GrantedAuthority> authorities = new HashSet<>();
 
-        // Roles como authorities con prefijo ROLE_
+        // Roles del usuario (UserRole)
         if (u.getRoles() != null) {
-            authorities.addAll(
-                    u.getRoles().stream()
-                            .map(Role::getName)
-                            .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
-                            .toList()
-            );
-        }
+            u.getRoles().forEach(userRole -> {
+                if (userRole == null || Boolean.TRUE.equals(userRole.getDeleted())) return; // ignorar eliminados
 
-        // Permisos como authorities sin prefijo
-        if (u.getPermissions() != null) {
-            authorities.addAll(
-                    u.getPermissions().stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .toList()
-            );
-        }
+                Role role = userRole.getRole();
+                if (role != null && Boolean.TRUE.equals(role.getActive())) {
+                    // Agregar rol como autoridad
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
 
+                    // Permisos del rol (filtrar eliminados)
+                    if (role.getPermissions() != null) {
+                        role.getPermissions().forEach(permission -> {
+                            if (permission != null && permission.getName() != null) {
+                                authorities.add(new SimpleGrantedAuthority(permission.getName()));
+                            }
+                        });
+                    }
+                }
+            });
+        }
 
         return new XsUserDetails(
                 u.getId(),
                 u.getUsername(),
                 u.getPassword(),
-                authorities,
+                new ArrayList<>(authorities),
                 u.getActive()
         );
     }
-
 
 
 }

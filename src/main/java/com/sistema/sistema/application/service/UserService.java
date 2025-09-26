@@ -8,11 +8,9 @@ import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.role.RoleDto;
 import com.sistema.sistema.application.dto.response.user.UserDto;
 import com.sistema.sistema.application.dto.response.user.UserFormResponse;
+import com.sistema.sistema.application.dto.response.user.UserRoleDTO;
 import com.sistema.sistema.application.dto.response.user.UserViewResponse;
-import com.sistema.sistema.domain.model.Parameter;
-import com.sistema.sistema.domain.model.Person;
-import com.sistema.sistema.domain.model.Role;
-import com.sistema.sistema.domain.model.User;
+import com.sistema.sistema.domain.model.*;
 import com.sistema.sistema.domain.repository.*;
 import com.sistema.sistema.domain.usecase.UserUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
@@ -119,20 +117,36 @@ public class UserService implements UserUseCase {
                     .email(user.getEmail())
                     .active(Boolean.TRUE.equals(user.getActive()))
                     .deleted(Boolean.TRUE.equals(user.getDeleted()))
-                    .roles(user.getRoles() != null
+                    .userRoles(user.getRoles() != null
                             ? user.getRoles().stream()
-                            .map(role -> RoleDto.builder()
-                                    .id(role.getId())
-                                    .name(role.getName())
-                                    .description(role.getDescription())
-                                    .active(Boolean.TRUE.equals(role.getActive()))
-                                    .deleted(role.getDeletedAt() != null)
-                                    .build()
-                            ).toList()
+                            // ignorar userRoles nulos
+                            .filter(ur -> ur != null)
+                            .map(ur -> {
+                                Role role = ur.getRole();
+                                RoleDto roleDto = null;
+
+                                if (role != null) {
+                                    roleDto = RoleDto.builder()
+                                            .id(role.getId())
+                                            .name(role.getName())
+                                            .description(role.getDescription())
+                                            .active(Boolean.TRUE.equals(role.getActive()))
+                                            .deleted(role.getDeletedAt() != null)
+                                            .build();
+                                }
+
+                                return UserRoleDTO.builder()
+                                        .id(ur.getId())
+                                        .role(roleDto)
+                                        .deleted(Boolean.TRUE.equals(ur.getDeleted()))
+                                        .build();
+                            })
+                            .toList()
                             : List.of())
                     .person(user.getPerson())
                     .build();
         }
+
 
         List<ParameterDto> typeDtos = types != null
                 ? types.stream().map(param -> ParameterDto.builder()
@@ -195,16 +209,23 @@ public class UserService implements UserUseCase {
                     "Ya existe un usuario con el nº de documento: " + request.getDocument());
         });
 
-        // 4. Validar existencia de roles antes de crear
+        // 1. Validar existencia de roles antes de crear
         Set<Role> roles = new HashSet<>();
         Set<Long> faltantes = new HashSet<>();
+        Set<Long> inactivos = new HashSet<>();
+        Set<Long> eliminados = new HashSet<>();
 
         for (Long roleId : request.getRoleIds()) {
             Role role = roleRepository.getRoleById(roleId);
-            if (role != null) {
-                roles.add(role);
-            } else {
+
+            if (role == null) {
                 faltantes.add(roleId);
+            } else if (role.getDeletedAt() != null) {
+                eliminados.add(roleId);
+            } else if (!Boolean.TRUE.equals(role.getActive())) {
+                inactivos.add(roleId);
+            } else {
+                roles.add(role);
             }
         }
 
@@ -212,6 +233,17 @@ public class UserService implements UserUseCase {
             throw new BusinessException(HttpStatus.NOT_FOUND,
                     "Los roles con id " + faltantes + " no existen");
         }
+
+        if (!eliminados.isEmpty()) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "Los roles con id " + eliminados + " fueron eliminados y no pueden asignarse");
+        }
+
+        if (!inactivos.isEmpty()) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "Los roles con id " + inactivos + " están inactivos y no pueden asignarse");
+        }
+
 
         // 2. Guardar persona
         Person person = Person.builder()
@@ -228,20 +260,21 @@ public class UserService implements UserUseCase {
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getDocument()))
+                .password(passwordEncoder.encode(request.getDocument())) // o request.getPassword()
                 .active(true)
+                .deleted(false)
                 .person(savedPerson)
                 .build();
 
         // 4. Guardar usuario usando el repositorio de dominio
         User savedUser = repository.save(user);
 
-        // 5. Asignar roles
+        // 5. Asignar roles activos
         userRoleRepository.saveUserRoles(savedUser, roles, 1L);
-        savedUser.setRoles(roles);
 
         return savedUser;
     }
+
 
 
     @Override
@@ -282,22 +315,30 @@ public class UserService implements UserUseCase {
             }
         });
 
-        // 5. Validar existencia de roles antes de actualizar
+        // 5. Validar existencia y estado de roles
         Set<Role> roles = new HashSet<>();
         Set<Long> faltantes = new HashSet<>();
+        Set<Long> inactivos = new HashSet<>();
 
         for (Long roleId : request.getRoleIds()) {
             Role role = roleRepository.getRoleById(roleId);
-            if (role != null) {
-                roles.add(role);
-            } else {
+            if (role == null) {
                 faltantes.add(roleId);
+            } else if (!Boolean.TRUE.equals(role.getActive())) {
+                inactivos.add(roleId);
+            } else {
+                roles.add(role);
             }
         }
 
         if (!faltantes.isEmpty()) {
             throw new BusinessException(HttpStatus.NOT_FOUND,
                     "Los roles con id " + faltantes + " no existen");
+        }
+
+        if (!inactivos.isEmpty()) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "Los roles con id " + inactivos + " están inactivos y no pueden asignarse");
         }
 
         // 6. Actualizar datos de la persona dentro del dominio
@@ -312,12 +353,21 @@ public class UserService implements UserUseCase {
         existingUser.setUsername(request.getUsername());
         existingUser.setEmail(request.getEmail());
 
-        // 8. Actualizar roles
-        existingUser.setRoles(roles);
+        // 8. Reemplazar roles (UserRole)
+        Set<UserRole> userRoles = roles.stream()
+                .map(role -> {
+                    UserRole ur = new UserRole();;
+                    ur.setRole(role);;
+                    return ur;
+                })
+                .collect(Collectors.toSet());
+
+        existingUser.setRoles(userRoles);
 
         // 9. Guardar cambios
         return repository.update(existingUser);
     }
+
 
 
     @Override

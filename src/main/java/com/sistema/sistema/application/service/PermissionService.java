@@ -9,10 +9,8 @@ import com.sistema.sistema.domain.repository.RolePermissionRepository;
 import com.sistema.sistema.domain.repository.RoleRepository;
 import com.sistema.sistema.domain.usecase.PermissionUseCase;
 import com.sistema.sistema.infrastructure.persistence.role.RoleMapper;
-import com.sistema.sistema.infrastructure.persistence.rolepermission.RolePermissionEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service

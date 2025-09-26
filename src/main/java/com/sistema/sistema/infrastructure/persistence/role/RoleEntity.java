@@ -1,7 +1,7 @@
 package com.sistema.sistema.infrastructure.persistence.role;
 
-import com.sistema.sistema.infrastructure.persistence.permission.PermissionEntity;
 import com.sistema.sistema.infrastructure.persistence.userrole.UserRoleEntity;
+import com.sistema.sistema.infrastructure.persistence.rolepermission.RolePermissionEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -53,14 +53,9 @@ public class RoleEntity {
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UserRoleEntity> userRoles = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "role_permissions",
-            joinColumns = @JoinColumn(name = "role_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
-    private Set<PermissionEntity> permissions = new HashSet<>();
+    private Set<RolePermissionEntity> rolePermissions = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

@@ -4,6 +4,7 @@ import com.sistema.sistema.application.dto.request.Role.RoleCreateRequest;
 import com.sistema.sistema.application.dto.request.Role.RoleUpdateRequest;
 import com.sistema.sistema.application.dto.request.Role.RoleViewRequest;
 import com.sistema.sistema.application.dto.response.RoleViewResponse;
+import com.sistema.sistema.application.dto.response.role.RoleDto;
 import com.sistema.sistema.domain.model.Role;
 import com.sistema.sistema.domain.repository.PermissionRepository;
 import com.sistema.sistema.domain.repository.RoleRepository;
@@ -31,6 +32,10 @@ public class RoleService implements RoleUseCase {
         // Los roles no eliminados
         List<Role> roles = repository.findByDeletedAtIsNull(request);
 
+        // Mapear a DTO
+        List<RoleDto> roleDtos = roles.stream()
+                .map(mapper::toDto)
+                .toList();
         // Total de roles
         Long total = (long) roles.size();
 
@@ -46,7 +51,7 @@ public class RoleService implements RoleUseCase {
         Long totalPermissions = (long) repositoryPermission.findByDeletedAtIsNull().size();
 
         return RoleViewResponse.builder()
-                .roles(roles)
+                .roles(roleDtos)
                 .totalRoles(total)
                 .activeRoles(activeRoles)
                 .inactiveRoles(inactiveRoles)

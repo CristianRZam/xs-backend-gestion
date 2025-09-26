@@ -1,22 +1,17 @@
 package com.sistema.sistema.application.dto.response.user;
 
 import com.sistema.sistema.application.dto.response.role.RoleDto;
-import com.sistema.sistema.domain.model.Person;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.List;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserDto {
+public class UserRoleDTO {
     private Long id;
-    private String username;
-    private String email;
-    private Boolean active;
+    private RoleDto role;
     private Boolean deleted;
-    private List<UserRoleDTO> userRoles;
-    private Person person;
 }

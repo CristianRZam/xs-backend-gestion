@@ -1,5 +1,6 @@
 package com.sistema.sistema.application.dto.response;
 
+import com.sistema.sistema.application.dto.response.role.RoleDto;
 import com.sistema.sistema.domain.model.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class RoleViewResponse {
-    private List<Role> roles;
+    private List<RoleDto> roles;
     private Long totalRoles;
     private Long activeRoles;
     private Long inactiveRoles;
