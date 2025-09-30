@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.persistence.parameter;
 
 import com.sistema.sistema.application.dto.request.parameter.ParameterCreateRequest;
 import com.sistema.sistema.application.dto.request.parameter.ParameterUpdateRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.domain.model.Parameter;
 import org.springframework.stereotype.Component;
 
@@ -89,6 +90,24 @@ public class ParameterMapper {
                 .build();
     }
 
+    /** Convert Domain -> DTO */
+    public ParameterDto toDto(Parameter param) {
+        if (param == null) return null;
+
+        return ParameterDto.builder()
+                .id(param.getId())
+                .parentParameterId(param.getParentParameterId())
+                .parameterId(param.getParameterId())
+                .code(param.getCode())
+                .type(param.getType())
+                .name(param.getName())
+                .shortName(param.getShortName())
+                .orderNumber(param.getOrderNumber())
+                .active(Boolean.TRUE.equals(param.getActive()))
+                .deleted(param.getDeletedAt() != null)
+                .build();
+    }
+
     /** Convert List<Domain> -> List<Entity> */
     public List<ParameterEntity> toEntityList(List<Parameter> parameters) {
         return parameters.stream()
@@ -101,5 +120,12 @@ public class ParameterMapper {
         return entities.stream()
                 .map(this::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    /** Convert List<Domain> -> List<DTO> */
+    public List<ParameterDto> toDtoList(List<Parameter> parameters) {
+        return parameters != null
+                ? parameters.stream().map(this::toDto).collect(Collectors.toList())
+                : List.of();
     }
 }

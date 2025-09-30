@@ -34,7 +34,7 @@ public class UserController {
 
     @PreAuthorize("hasAuthority('VIEW_USER')")
     @PostMapping("/init")
-    public ResponseEntity<ApiResponse<UserViewResponse>> initRolesView(@RequestBody UserViewRequest request) {
+    public ResponseEntity<ApiResponse<UserViewResponse>> initView(@RequestBody UserViewRequest request) {
         UserViewResponse data = userUseCase.init(request);
         return ApiResponseFactory.success(data, "Lista de usuarios y resumen cargados correctamente");
     }

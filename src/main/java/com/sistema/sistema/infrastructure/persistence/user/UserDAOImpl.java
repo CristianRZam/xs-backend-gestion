@@ -247,4 +247,69 @@ public class UserDAOImpl implements UserRepository{
         return true;
     }
 
+    @Override
+    public Boolean updatePassword(User user) {
+        // 1. Buscar usuario
+        UserEntity entity = jpa.findById(user.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
+
+        // 2. Recuperar el ID del usuario logueado desde el SecurityContext
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        // 3. Marcar como eliminado
+        entity.setModifiedAt(LocalDateTime.now());
+        entity.setModifiedBy(currentUserId);
+        entity.setPassword(user.getPassword());
+
+        // 4. Guardar cambios
+        jpa.save(entity);
+
+        return true;
+    }
+
+    @Override
+    public Boolean disableAccount(User user) {
+        // 1. Buscar usuario
+        UserEntity entity = jpa.findById(user.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado."));
+
+        // 2. Recuperar el ID del usuario logueado desde el SecurityContext
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        // 3. Marcar como eliminado
+        entity.setModifiedAt(LocalDateTime.now());
+        entity.setModifiedBy(currentUserId);
+        entity.setActive(false);
+
+        // 4. Guardar cambios
+        jpa.save(entity);
+
+        return true;
+    }
+
+
+
+    @Override
+    public User updateAvatar(User user) {
+        // 1. Buscar usuario
+        UserEntity entity = jpa.findById(user.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado."));
+
+        // 2. Recuperar el ID del usuario logueado desde el SecurityContext
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        // 3. Actualizar avatar (usando el valor que viene en user.getAvatarUrl())
+        entity.setAvatarUrl(user.getAvatarUrl());
+        entity.setModifiedAt(LocalDateTime.now());
+        entity.setModifiedBy(currentUserId);
+
+        // 4. Guardar cambios
+        jpa.save(entity);
+
+        // 5. Retornar el objeto actualizado
+        return user;
+    }
+
+
+
 }

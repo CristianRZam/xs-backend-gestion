@@ -15,6 +15,7 @@ public class User {
     private Person person;
     private String username;
     private String email;
+    private String avatarUrl;
     private String password;
     private Boolean active;
     private Boolean deleted;

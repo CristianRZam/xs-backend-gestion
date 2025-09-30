@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/swagger-ui/index.html"
                         ).permitAll()
                         .requestMatchers("/api/login").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         //USER
                         .requestMatchers(HttpMethod.POST, "/api/user/create").hasAuthority("CREATE_USER")
                         .requestMatchers(HttpMethod.PUT, "/api/user/update").hasAuthority("EDIT_USER")
@@ -61,6 +62,15 @@ public class SecurityConfig {
                         //PERMISSION
                         .requestMatchers(HttpMethod.GET, "/api/permission/get-by-role/**").hasAuthority("VIEW_PERMISSION")
                         .requestMatchers(HttpMethod.PUT, "/api/permission/update-permission-by-role").hasAuthority("ASSIGN_PERMISSION")
+                        //PROFILE
+                        .requestMatchers(HttpMethod.GET, "/api/profile/init").hasAuthority("VIEW_PROFILE")
+                        .requestMatchers(HttpMethod.GET, "/api/profile/init-form").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/update").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/update-password").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/disable-account").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/upload-avatar").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/delete-avatar").hasAuthority("UPDATE_PROFILE")
+                        .requestMatchers(HttpMethod.GET, "/api/profile/permissions").hasAuthority("PERMISSION_PROFILE")
                         .anyRequest().authenticated()
                 );
 

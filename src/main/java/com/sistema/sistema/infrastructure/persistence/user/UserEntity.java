@@ -33,6 +33,9 @@ public class UserEntity {
     @Column(nullable = false, length = 100)
     private String email;
 
+    @Column(length = 500, name = "avatar_url")
+    private String avatarUrl;
+
     @Column(nullable = false, length = 255)
     private String password;
 

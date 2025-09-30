@@ -15,4 +15,9 @@ public interface UserRepository {
     Boolean delete(Long id);
     Boolean updateStatus(Long id);
 
+    Boolean updatePassword(User user);
+
+    Boolean disableAccount(User user);
+
+    User updateAvatar(User user);
 }

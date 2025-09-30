@@ -98,6 +98,7 @@ public class UserMapper {
                 .id(e.getId())
                 .username(e.getUsername())
                 .email(e.getEmail())
+                .avatarUrl(e.getAvatarUrl())
                 .password(e.getPassword())
                 .active(e.getActive())
                 .deleted(e.getDeletedAt() != null)

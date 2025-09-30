@@ -23,6 +23,7 @@ public class RoleMapper {
     public RoleMapper(PermissionMapper permissionMapper) {
         this.permissionMapper = permissionMapper;
     }
+
     // DTO → Domain
     public Role toDomain(RoleCreateRequest request) {
         if (request == null) return null;
