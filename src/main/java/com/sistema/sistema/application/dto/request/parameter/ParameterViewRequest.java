@@ -10,6 +10,7 @@ public class ParameterViewRequest {
     private String shortName;
     private String code;
     private long type;
+    private Boolean status;
     private int page = 0;
     private int size = 5;
 }

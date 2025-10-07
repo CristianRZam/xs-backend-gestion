@@ -8,6 +8,7 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.sistema.sistema.application.dto.request.parameter.ParameterViewRequest;
 import com.sistema.sistema.application.dto.response.parameter.ParameterViewResponse;
+import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.usecase.ParameterUseCase;
 import com.sistema.sistema.infrastructure.report.*;
 import org.apache.poi.ss.usermodel.*;
@@ -15,10 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ParameterReportService {
@@ -28,27 +26,50 @@ public class ParameterReportService {
         this.parameterUseCase = parameterUseCase;
     }
 
+    /**
+     * 📌 Construcción centralizada de filtros
+     */
+    private Map<String, String> buildFilters(ParameterViewRequest request) {
+        Map<String, String> filters = new LinkedHashMap<>();
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            filters.put("Nombre", request.getName());
+        }
+
+        if (request.getShortName() != null && !request.getShortName().isBlank()) {
+            filters.put("Nombre corto", request.getShortName());
+        }
+
+        if (request.getCode() != null && !request.getCode().isBlank()) {
+            filters.put("Código", request.getCode());
+        }
+
+        if (request.getType() > 0) {
+            List<Parameter> typeDocuments = parameterUseCase.getListParameterByCode("TIPO_PARAMETRO");
+
+            String nombre = typeDocuments.stream()
+                    .filter(p -> p.getParameterId() != null && p.getParameterId().intValue() == request.getType())
+                    .map(Parameter::getName)
+                    .findFirst()
+                    .orElse("Indefinido");
+
+            filters.put("Tipo", nombre);
+        }
+
+        if (request.getStatus() != null) {
+            filters.put("Estado", request.getStatus() ? "Habilitado" : "Inhabilitado");
+        }
+
+        return filters;
+    }
+
     // 📌 Generación de PDF
     public byte[] generatePdfReport(ParameterViewRequest request, String username) {
         ParameterViewResponse response = parameterUseCase.init(request);
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-
-            // ---- Construcción dinámica de filtros ----
-            Map<String, String> filters = new LinkedHashMap<>();
-            if (request.getName() != null && !request.getName().isBlank()) {
-                filters.put("Nombre", request.getName());
-            }
-            if (request.getShortName() != null && !request.getShortName().isBlank()) {
-                filters.put("Nombre Corto", request.getShortName());
-            }
-            if (request.getCode() != null && !request.getCode().isBlank()) {
-                filters.put("Código", request.getCode());
-            }
-            if (request.getType() > 0) {
-                filters.put("Tipo", String.valueOf(request.getType()));
-            }
-
+            // ---- Filtros ----
+            Map<String, String> filters = buildFilters(request);
             boolean hasFilters = !filters.isEmpty();
 
             // Calcular margen superior dinámico
@@ -60,9 +81,8 @@ public class ParameterReportService {
             Document document = new Document(PageSize.A4, 36, 36, marginTop, 36);
             PdfWriter writer = PdfWriter.getInstance(document, baos);
 
-            // Header (sin filtros, solo título y usuario)
+            // Header
             writer.setPageEvent(new PdfReportUtil("Reporte de parámetros", username));
-
             document.open();
 
             // ---- Renderizamos filtros ----
@@ -79,23 +99,23 @@ public class ParameterReportService {
             }
 
             // ---- Cabecera de la tabla ----
-            List<String> columnTitles = Arrays.asList("Nº" ,"Nombre", "Nombre Corto", "Orden", "Código", "Estado");
-            float[] columnWidths = {0.5f, 3f, 1.5f, 1.5f, 2f, 1.5f};
+            List<String> columnTitles = Arrays.asList("Nº", "Nombre", "Nombre Corto", "Orden", "Código", "Tipo", "Estado");
+            float[] columnWidths = {0.5f, 3f, 1.5f, 1.2f, 2.5f, 1f, 1.5f};
 
             PdfPTable table = PdfTableUtil.createHeader(columnTitles, columnWidths);
-
             if (!hasFilters) {
                 table.setSpacingBefore(10f);
             }
 
             com.lowagie.text.Font bodyFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 9);
             List<Integer> alignments = Arrays.asList(
-                    Element.ALIGN_CENTER,
-                    Element.ALIGN_LEFT,
-                    Element.ALIGN_LEFT,
-                    Element.ALIGN_LEFT,
-                    Element.ALIGN_CENTER,
-                    Element.ALIGN_CENTER
+                    Element.ALIGN_CENTER, // Nº
+                    Element.ALIGN_LEFT,   // Nombre
+                    Element.ALIGN_LEFT,   // Nombre corto
+                    Element.ALIGN_CENTER, // Orden
+                    Element.ALIGN_CENTER, // Código
+                    Element.ALIGN_CENTER, // Tipo
+                    Element.ALIGN_CENTER  // Estado
             );
 
             int index = 1;
@@ -108,6 +128,7 @@ public class ParameterReportService {
                                 parameter.getShortName() != null ? parameter.getShortName() : "-",
                                 parameter.getOrderNumber() != null ? String.valueOf(parameter.getOrderNumber()) : "-",
                                 parameter.getCode(),
+                                parameter.getTypeName() != null ? parameter.getTypeName() : "Indefinido",
                                 parameter.getActive() ? "Habilitado" : "Inhabilitado"
                         ),
                         bodyFont,
@@ -129,33 +150,16 @@ public class ParameterReportService {
         ParameterViewResponse response = parameterUseCase.init(request);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-
             // ---- Única Hoja ----
             Sheet sheet = workbook.createSheet("Reporte de Parámetros");
             int rowIdx = 0;
 
-            // ---- Encabezado (utilidad) ----
-            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Parámetros", username, 5);
+            // ---- Encabezado ----
+            ExcelReportHeaderUtil.createCoverPage(workbook, sheet, "Reporte de Parámetros", username, 6);
             rowIdx = sheet.getLastRowNum() + 2;
 
-            CellStyle bodyStyle = workbook.createCellStyle();
-            bodyStyle.setWrapText(true);
-
-            // ---- Filtros aplicados ----
-            Map<String, String> filters = new LinkedHashMap<>();
-            if (request.getName() != null && !request.getName().isBlank()) {
-                filters.put("Nombre", request.getName());
-            }
-            if (request.getShortName() != null && !request.getShortName().isBlank()) {
-                filters.put("Nombre Corto", request.getShortName());
-            }
-            if (request.getCode() != null && !request.getCode().isBlank()) {
-                filters.put("Código", request.getCode());
-            }
-            if (request.getType() > 0) {
-                filters.put("Tipo", String.valueOf(request.getType()));
-            }
-
+            // ---- Filtros ----
+            Map<String, String> filters = buildFilters(request);
             if (!filters.isEmpty()) {
                 // Estilo negrita
                 CellStyle boldStyle = workbook.createCellStyle();
@@ -172,43 +176,28 @@ public class ParameterReportService {
                     Row filterRow = sheet.createRow(rowIdx++);
                     Cell keyCell = filterRow.createCell(0);
                     keyCell.setCellValue(entry.getKey());
-                    keyCell.setCellStyle(boldStyle); // <-- título del filtro en negrita
+                    keyCell.setCellStyle(boldStyle);
 
                     filterRow.createCell(1).setCellValue(entry.getValue());
                 }
                 rowIdx++;
             }
 
-            String[] columns = {"Nº","Nombre", "Nombre Corto", "Orden", "Código", "Estado" };
+            // ---- Cabecera de la tabla ----
+            String[] columns = {"Nº", "Nombre", "Nombre Corto", "Orden", "Código", "Tipo", "Estado"};
             HorizontalAlignment[] alignments = {
                     HorizontalAlignment.CENTER,
-                    HorizontalAlignment.CENTER,
+                    HorizontalAlignment.LEFT,
+                    HorizontalAlignment.LEFT,
                     HorizontalAlignment.CENTER,
                     HorizontalAlignment.CENTER,
                     HorizontalAlignment.CENTER,
                     HorizontalAlignment.CENTER
             };
 
-            rowIdx = ExcelReportTableUtil.createTableHeader(
-                    workbook,
-                    sheet,
-                    rowIdx,
-                    columns,
-                    alignments,
-                    (short) 11
-            );
+            rowIdx = ExcelReportTableUtil.createTableHeader(workbook, sheet, rowIdx, columns, alignments, (short) 11);
 
-            // Definir alineaciones por columna
-            HorizontalAlignment[] dataAlignments = {
-                    HorizontalAlignment.CENTER,   // Nº
-                    HorizontalAlignment.LEFT,
-                    HorizontalAlignment.LEFT,
-                    HorizontalAlignment.LEFT,
-                    HorizontalAlignment.CENTER,
-                    HorizontalAlignment.CENTER
-            };
-
-            // Escribir filas dinámicamente
+            // ---- Escribir filas ----
             int index = 1;
             for (var parameter : response.getParameters()) {
                 Object[] rowValues = {
@@ -217,12 +206,13 @@ public class ParameterReportService {
                         parameter.getShortName() != null ? parameter.getShortName() : "-",
                         parameter.getOrderNumber() != null ? String.valueOf(parameter.getOrderNumber()) : "-",
                         parameter.getCode(),
+                        parameter.getTypeName() != null ? parameter.getTypeName() : "Indefinido",
                         parameter.getActive() ? "Habilitado" : "Inhabilitado"
                 };
 
                 rowIdx = ExcelReportDataUtil.writeDataRow(
                         workbook, sheet, rowIdx,
-                        rowValues, dataAlignments, (short) 10
+                        rowValues, alignments, (short) 10
                 );
             }
 
@@ -231,7 +221,6 @@ public class ParameterReportService {
                 sheet.autoSizeColumn(i);
             }
 
-            // Guardar en bytes
             workbook.write(baos);
             return baos.toByteArray();
 

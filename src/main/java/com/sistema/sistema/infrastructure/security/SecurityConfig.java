@@ -46,6 +46,15 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/login").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        //PARAMETER
+                        .requestMatchers(HttpMethod.POST, "/api/parameter/create").hasAuthority("CREATE_PARAMETER")
+                        .requestMatchers(HttpMethod.PUT, "/api/parameter/update").hasAuthority("EDIT_PARAMETER")
+                        .requestMatchers(HttpMethod.PUT, "/api/parameter/update-status").hasAuthority("EDIT_PARAMETER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/parameter/delete/**").hasAuthority("DELETE_PARAMETER")
+                        .requestMatchers(HttpMethod.POST, "/api/parameter/init").hasAuthority("VIEW_PARAMETER")
+                        .requestMatchers(HttpMethod.POST, "/api/parameter/init-form").hasAnyAuthority("CREATE_PARAMETER", "EDIT_PARAMETER")
+                        .requestMatchers(HttpMethod.POST, "/api/parameter/export-pdf").hasAuthority("EXPORT_PARAMETER")
+                        .requestMatchers(HttpMethod.POST, "/api/parameter/export-excel").hasAuthority("EXPORT_PARAMETER")
                         //USER
                         .requestMatchers(HttpMethod.POST, "/api/user/create").hasAuthority("CREATE_USER")
                         .requestMatchers(HttpMethod.PUT, "/api/user/update").hasAuthority("EDIT_USER")
@@ -53,12 +62,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/user/delete/**").hasAuthority("DELETE_USER")
                         .requestMatchers(HttpMethod.POST, "/api/user/init").hasAuthority("VIEW_USER")
                         .requestMatchers(HttpMethod.POST, "/api/user/init-form").hasAnyAuthority("CREATE_USER", "EDIT_USER")
+                        .requestMatchers(HttpMethod.POST, "/api/user/export-pdf").hasAuthority("EXPORT_USER")
+                        .requestMatchers(HttpMethod.POST, "/api/user/export-excel").hasAuthority("EXPORT_USER")
                         //ROLE
                         .requestMatchers(HttpMethod.POST, "/api/role/create").hasAuthority("CREATE_ROLE")
                         .requestMatchers(HttpMethod.PUT, "/api/role/update").hasAuthority("EDIT_ROLE")
                         .requestMatchers(HttpMethod.PUT, "/api/role/update-status").hasAuthority("EDIT_ROLE")
                         .requestMatchers(HttpMethod.DELETE, "/api/role/delete/**").hasAuthority("DELETE_ROLE")
                         .requestMatchers(HttpMethod.POST, "/api/role/init").hasAuthority("VIEW_ROLE")
+                        .requestMatchers(HttpMethod.POST, "/api/role/export-pdf").hasAuthority("EXPORT_ROLE")
+                        .requestMatchers(HttpMethod.POST, "/api/role/export-excel").hasAuthority("EXPORT_ROLE")
                         //PERMISSION
                         .requestMatchers(HttpMethod.GET, "/api/permission/get-by-role/**").hasAuthority("VIEW_PERMISSION")
                         .requestMatchers(HttpMethod.PUT, "/api/permission/update-permission-by-role").hasAuthority("ASSIGN_PERMISSION")
@@ -90,6 +103,7 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {

@@ -4,6 +4,7 @@ import com.sistema.sistema.application.dto.request.parameter.ParameterCreateRequ
 import com.sistema.sistema.application.dto.request.parameter.ParameterFormRequest;
 import com.sistema.sistema.application.dto.request.parameter.ParameterUpdateRequest;
 import com.sistema.sistema.application.dto.request.parameter.ParameterViewRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.parameter.ParameterFormResponse;
 import com.sistema.sistema.application.dto.response.parameter.ParameterViewResponse;
 import com.sistema.sistema.domain.model.Parameter;
@@ -14,10 +15,11 @@ import java.util.List;
 public interface ParameterUseCase {
     ParameterViewResponse init(ParameterViewRequest request);
     ParameterFormResponse initFormData(ParameterFormRequest request);
-    Parameter getParameterById(Long id);
+    ParameterDto getParameterById(Long id);
     Parameter create(@Valid ParameterCreateRequest request);
     Parameter update(@Valid ParameterUpdateRequest request);
     boolean delete(Long id);
     Boolean updateStatus(Long id);
     List<Parameter> getListParameterByCode(String code);
+    byte[] getFileAsBytes(String filename);
 }

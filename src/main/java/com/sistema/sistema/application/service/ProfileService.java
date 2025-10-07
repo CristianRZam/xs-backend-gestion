@@ -131,6 +131,14 @@ public class ProfileService implements ProfileUseCase {
             }
         });
 
+        if(!Objects.equals(request.getTypeDocument(), existingUser.getPerson().getTypeDocument())) {
+            boolean enableParameter = parameterRepository.existsActiveAndNotDeletedParameter(request.getTypeDocument(), "TIPO_DOCUMENTO");
+
+            if (!enableParameter) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "El tipo de documento no esta disponible.");
+            }
+        }
+
         // 5. Actualizar datos de la persona
         Person person = existingUser.getPerson();
         if (person != null) {

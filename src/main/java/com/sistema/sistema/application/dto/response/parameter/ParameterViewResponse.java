@@ -11,7 +11,8 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ParameterViewResponse {
-    List<Parameter> parameters;
+    List<ParameterDto> parameters;
+    List<ParameterDto>  typesParameter;
     private Long totalParameters;
     private Long activeParameters;
     private Long inactiveParameters;

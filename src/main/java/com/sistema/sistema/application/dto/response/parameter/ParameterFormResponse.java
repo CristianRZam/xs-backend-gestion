@@ -11,6 +11,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ParameterFormResponse {
-    Parameter parameter;
-    List<Parameter> types;
+    ParameterDto parameter;
+    List<ParameterDto> types;
 }

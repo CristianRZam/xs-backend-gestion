@@ -3,6 +3,7 @@ package com.sistema.sistema.application.dto.request.parameter;
 import jakarta.validation.constraints.*;
 
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class ParameterCreateRequest {
@@ -27,5 +28,7 @@ public class ParameterCreateRequest {
 
     @NotNull(message = "El orden es obligatorio")
     private Long orderNumber;
+
+    private MultipartFile file;
 
 }

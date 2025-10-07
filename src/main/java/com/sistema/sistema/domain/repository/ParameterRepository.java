@@ -9,8 +9,11 @@ public interface ParameterRepository {
     List<Parameter> findByDeletedAtIsNull(ParameterViewRequest request);
     Parameter getParameterById(Long id);
     List<Parameter> getListParameterByCode(String code);
+    List<Parameter> getAllListParameterByCode(String code);
     Parameter save(Parameter parameter);
     Parameter update(Parameter parameter);
     boolean delete(Long id);
     Boolean updateStatus(Long id);
+
+    boolean existsActiveAndNotDeletedParameter(Long parameterId, String tipoParametro);
 }

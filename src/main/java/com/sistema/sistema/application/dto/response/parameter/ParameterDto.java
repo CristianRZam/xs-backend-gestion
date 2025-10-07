@@ -17,6 +17,7 @@ public class ParameterDto {
     private Long parameterId;
     private String code;
     private Long type;
+    private String typeName;
     private String name;
     private String shortName;
     private Long orderNumber;

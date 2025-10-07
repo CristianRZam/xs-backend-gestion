@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,8 +64,12 @@ public class UserService implements UserUseCase {
         // Usuarios inactivos
         Long inactiveUsers = total - activeUsers;
         // Usuarios con rol ADMIN (id = 1)
-        Long totalAdmins = users.stream() .filter(u -> u.getRoles() != null)
-            .filter(u -> u.getRoles().stream().anyMatch(r -> r.getId() == 1L)) .count();
+        Long totalAdmins = users.stream()
+                .filter(u -> u.getRoles() != null)
+                .filter(u -> u.getRoles().stream()
+                        .anyMatch(ur -> ur.getRole() != null && ur.getRole().getId() == 1L))
+                .count();
+
         // 🔹 Convertimos la lista de User -> UserDto con el mapper
         List<UserDto> userDtos = users.stream() .map(mapper::toDto) .collect(Collectors.toList());
 
@@ -209,6 +214,12 @@ public class UserService implements UserUseCase {
                     "Ya existe un usuario con el nº de documento: " + request.getDocument());
         });
 
+        boolean enableParameter = parameterRepository.existsActiveAndNotDeletedParameter(request.getTypeDocument(), "TIPO_DOCUMENTO");
+
+        if (!enableParameter) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El tipo de documento no esta disponible.");
+        }
+
         // 1. Validar existencia de roles antes de crear
         Set<Role> roles = new HashSet<>();
         Set<Long> faltantes = new HashSet<>();
@@ -314,6 +325,14 @@ public class UserService implements UserUseCase {
                         "Ya existe un usuario con el nº de documento: " + request.getDocument());
             }
         });
+
+        if(!Objects.equals(request.getTypeDocument(), existingUser.getPerson().getTypeDocument())) {
+            boolean enableParameter = parameterRepository.existsActiveAndNotDeletedParameter(request.getTypeDocument(), "TIPO_DOCUMENTO");
+
+            if (!enableParameter) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "El tipo de documento no esta disponible.");
+            }
+        }
 
         // 5. Validar existencia y estado de roles
         Set<Role> roles = new HashSet<>();

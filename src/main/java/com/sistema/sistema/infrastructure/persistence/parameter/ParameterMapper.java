@@ -80,7 +80,6 @@ public class ParameterMapper {
 
         return Parameter.builder()
                 .id(request.getId())
-                .code(request.getCode())
                 .name(request.getName())
                 .shortName(request.getShortName())
                 .parentParameterId(request.getParentParameterId())
@@ -94,19 +93,41 @@ public class ParameterMapper {
     public ParameterDto toDto(Parameter param) {
         if (param == null) return null;
 
+        String name = param.getName();
+        String typeName;
+
+        if (param.getType() != null && param.getType() == 1 && name != null) {
+            // Si es archivo, recorto el nombre
+            name = name.substring(name.lastIndexOf("/") + 1);
+        }
+
+        // Asignar typeName
+        if (param.getType() == null) {
+            typeName = "Indefinido";
+        } else {
+            switch (param.getType().intValue()) {
+                case 1 -> typeName = "Archivo";
+                case 2 -> typeName = "Texto";
+                default -> typeName = "Indefinido";
+            }
+        }
+
         return ParameterDto.builder()
                 .id(param.getId())
                 .parentParameterId(param.getParentParameterId())
                 .parameterId(param.getParameterId())
                 .code(param.getCode())
                 .type(param.getType())
-                .name(param.getName())
+                .typeName(typeName)
+                .name(name)
                 .shortName(param.getShortName())
                 .orderNumber(param.getOrderNumber())
                 .active(Boolean.TRUE.equals(param.getActive()))
                 .deleted(param.getDeletedAt() != null)
                 .build();
     }
+
+
 
     /** Convert List<Domain> -> List<Entity> */
     public List<ParameterEntity> toEntityList(List<Parameter> parameters) {
