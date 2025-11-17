@@ -62,16 +62,12 @@ public class ParameterService implements ParameterUseCase {
         List<ParameterDto> parameterDtos = mapper.toDtoList(parameters);
 
         // Filtrar los que tengan código con "TIPO_PARAMETRO"
-        List<Parameter> typesParameter = repository.getListParameterByCode("TIPO_PARAMETRO");
-        List<ParameterDto> typesParameterDto = typesParameter.stream()
-                .filter(p -> p.getCode() != null && p.getCode().contains("TIPO_PARAMETRO"))
-                .map(mapper::toDto)
-                .toList();
+        List<ParameterDto> typesParameter = repository.getListParameterByCode("TIPO_PARAMETRO");
 
         // Construimos la respuesta
         return ParameterViewResponse.builder()
                 .parameters(parameterDtos)
-                .typesParameter(typesParameterDto)
+                .typesParameter(typesParameter)
                 .totalParameters(total)
                 .activeParameters(activeParameters)
                 .inactiveParameters(inactiveParameters)
@@ -203,7 +199,7 @@ public class ParameterService implements ParameterUseCase {
     }
 
     @Override
-    public List<Parameter> getListParameterByCode(String code) {
+    public List<ParameterDto> getListParameterByCode(String code) {
         return repository.getListParameterByCode(code);
     }
 

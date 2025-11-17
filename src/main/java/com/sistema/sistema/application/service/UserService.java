@@ -74,27 +74,11 @@ public class UserService implements UserUseCase {
         List<UserDto> userDtos = users.stream() .map(mapper::toDto) .collect(Collectors.toList());
 
         // Tipos de documento
-        List<Parameter> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
-        List<ParameterDto> typeDtos = types != null
-                ? types.stream()
-                .map(param -> ParameterDto.builder()
-                        .id(param.getId())
-                        .parentParameterId(param.getParentParameterId())
-                        .parameterId(param.getParameterId())
-                        .code(param.getCode())
-                        .type(param.getType())
-                        .name(param.getName())
-                        .shortName(param.getShortName())
-                        .orderNumber(param.getOrderNumber())
-                        .active(Boolean.TRUE.equals(param.getActive()))
-                        .deleted(param.getDeletedAt() != null)
-                        .build())
-                .toList()
-                : List.of();
+        List<ParameterDto> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
 
         return UserViewResponse.builder()
                 .users(userDtos)
-                .typeDocuments(typeDtos)
+                .typeDocuments(types)
                 .totalUsers(total)
                 .activeUsers(activeUsers)
                 .inactiveUsers(inactiveUsers)
@@ -111,7 +95,7 @@ public class UserService implements UserUseCase {
             user = repository.getUserById(request.getId());
         }
 
-        List<Parameter> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
+        List<ParameterDto> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
         List<Role> roles = roleRepository.findAll();
 
         UserDto userDto = null;
@@ -153,22 +137,6 @@ public class UserService implements UserUseCase {
         }
 
 
-        List<ParameterDto> typeDtos = types != null
-                ? types.stream().map(param -> ParameterDto.builder()
-                .id(param.getId())
-                .parentParameterId(param.getParentParameterId())
-                .parameterId(param.getParameterId())
-                .code(param.getCode())
-                .type(param.getType())
-                .name(param.getName())
-                .shortName(param.getShortName())
-                .orderNumber(param.getOrderNumber())
-                .active(Boolean.TRUE.equals(param.getActive()))
-                .deleted(param.getDeletedAt() != null)
-                .build()
-        ).toList()
-                : List.of();
-
         List<RoleDto> roleDtos = roles != null
                 ? roles.stream().map(role -> RoleDto.builder()
                 .id(role.getId())
@@ -182,7 +150,7 @@ public class UserService implements UserUseCase {
 
         return UserFormResponse.builder()
                 .user(userDto)
-                .documentTypes(typeDtos)
+                .documentTypes(types)
                 .roles(roleDtos)
                 .build();
     }

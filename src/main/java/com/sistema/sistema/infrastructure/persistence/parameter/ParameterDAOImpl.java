@@ -1,6 +1,7 @@
 package com.sistema.sistema.infrastructure.persistence.parameter;
 
 import com.sistema.sistema.application.dto.request.parameter.ParameterViewRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.repository.ParameterRepository;
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
@@ -84,9 +85,9 @@ public class ParameterDAOImpl implements ParameterRepository {
     }
 
     @Override
-    public List<Parameter> getListParameterByCode(String code) {
+    public List<ParameterDto> getListParameterByCode(String code) {
         List<ParameterEntity> entities = jpa.findByDeletedAtIsNullAndCodeIgnoreCaseOrderByIdAsc(code);
-        return mapper.toDomainList(entities);
+        return mapper.toDtoListFromEntities(entities);
     }
 
     @Override

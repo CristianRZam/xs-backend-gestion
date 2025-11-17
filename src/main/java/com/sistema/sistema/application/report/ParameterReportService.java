@@ -7,8 +7,8 @@ import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.sistema.sistema.application.dto.request.parameter.ParameterViewRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.parameter.ParameterViewResponse;
-import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.usecase.ParameterUseCase;
 import com.sistema.sistema.infrastructure.report.*;
 import org.apache.poi.ss.usermodel.*;
@@ -26,9 +26,6 @@ public class ParameterReportService {
         this.parameterUseCase = parameterUseCase;
     }
 
-    /**
-     * 📌 Construcción centralizada de filtros
-     */
     private Map<String, String> buildFilters(ParameterViewRequest request) {
         Map<String, String> filters = new LinkedHashMap<>();
 
@@ -45,11 +42,11 @@ public class ParameterReportService {
         }
 
         if (request.getType() > 0) {
-            List<Parameter> typeDocuments = parameterUseCase.getListParameterByCode("TIPO_PARAMETRO");
+            List<ParameterDto> typeDocuments = parameterUseCase.getListParameterByCode("TIPO_PARAMETRO");
 
             String nombre = typeDocuments.stream()
                     .filter(p -> p.getParameterId() != null && p.getParameterId().intValue() == request.getType())
-                    .map(Parameter::getName)
+                    .map(ParameterDto::getName)
                     .findFirst()
                     .orElse("Indefinido");
 
@@ -63,7 +60,6 @@ public class ParameterReportService {
         return filters;
     }
 
-    // 📌 Generación de PDF
     public byte[] generatePdfReport(ParameterViewRequest request, String username) {
         ParameterViewResponse response = parameterUseCase.init(request);
 

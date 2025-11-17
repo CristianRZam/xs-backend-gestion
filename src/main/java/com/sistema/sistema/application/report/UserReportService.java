@@ -7,8 +7,8 @@ import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.sistema.sistema.application.dto.request.user.UserViewRequest;
+import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.user.UserViewResponse;
-import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.usecase.ParameterUseCase;
 import com.sistema.sistema.domain.usecase.UserUseCase;
 import com.sistema.sistema.infrastructure.report.*;
@@ -37,11 +37,11 @@ public class UserReportService {
         Map<String, String> filters = new LinkedHashMap<>();
 
         if (request.getTypeDocuments() != null && !request.getTypeDocuments().isEmpty()) {
-            List<Parameter> typeDocuments = parameterUseCase.getListParameterByCode("TIPO_DOCUMENTO");
+            List<ParameterDto> typeDocuments = parameterUseCase.getListParameterByCode("TIPO_DOCUMENTO");
 
             String nombres = typeDocuments.stream()
                     .filter(p -> request.getTypeDocuments().contains(p.getParameterId().intValue()))
-                    .map(Parameter::getName)
+                    .map(ParameterDto::getName)
                     .collect(Collectors.joining(", "));
 
             filters.put("Tipos de documento", nombres);

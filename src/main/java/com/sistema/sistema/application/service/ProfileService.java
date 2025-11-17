@@ -6,7 +6,6 @@ import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.profile.ProfileDTO;
 import com.sistema.sistema.application.dto.response.profile.ProfileFormresponse;
 import com.sistema.sistema.application.dto.response.profile.ProfileViewResponse;
-import com.sistema.sistema.domain.model.Parameter;
 import com.sistema.sistema.domain.model.Permission;
 import com.sistema.sistema.domain.model.Person;
 import com.sistema.sistema.domain.model.User;
@@ -15,7 +14,6 @@ import com.sistema.sistema.domain.repository.PersonRepository;
 import com.sistema.sistema.domain.repository.UserRepository;
 import com.sistema.sistema.domain.usecase.ProfileUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
-import com.sistema.sistema.infrastructure.persistence.parameter.ParameterMapper;
 import com.sistema.sistema.infrastructure.persistence.profile.ProfileMapper;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,20 +39,17 @@ public class ProfileService implements ProfileUseCase {
     private final ParameterRepository parameterRepository;
     private final PersonRepository personRepository;
     private final ProfileMapper mapper;
-    private final ParameterMapper parameterMapper;
     private final PasswordEncoder passwordEncoder;
     public ProfileService(
             UserRepository repository,
             ProfileMapper mapper,
             ParameterRepository parameterRepository,
-            ParameterMapper parameterMapper,
             PersonRepository personRepository,
             PasswordEncoder passwordEncoder
     ) {
         this.repository = repository;
         this.mapper = mapper;
         this.parameterRepository = parameterRepository;
-        this.parameterMapper = parameterMapper;
         this.personRepository = personRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -79,10 +74,7 @@ public class ProfileService implements ProfileUseCase {
         }
 
         // Traer tipos de documento
-        List<Parameter> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
-
-        // Mapear a DTO
-        List<ParameterDto> typeDtos = parameterMapper.toDtoList(types);
+        List<ParameterDto> types = parameterRepository.getListParameterByCode("TIPO_DOCUMENTO");
 
         // Mapear usuario
         ProfileDTO dto = mapper.toProfileDTO(user);
@@ -90,7 +82,7 @@ public class ProfileService implements ProfileUseCase {
         // Retornar con ambos datos
         return ProfileFormresponse.builder()
                 .user(dto)
-                .documentTypes(typeDtos)
+                .documentTypes(types)
                 .build();
     }
 

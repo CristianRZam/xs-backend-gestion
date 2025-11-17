@@ -149,4 +149,47 @@ public class ParameterMapper {
                 ? parameters.stream().map(this::toDto).collect(Collectors.toList())
                 : List.of();
     }
+
+    /** ✅ Convert Entity -> DTO directamente */
+    public ParameterDto toDto(ParameterEntity entity) {
+        if (entity == null) return null;
+
+        String name = entity.getName();
+        String typeName;
+
+        if (entity.getType() != null && entity.getType() == 1 && name != null) {
+            name = name.substring(name.lastIndexOf("/") + 1);
+        }
+
+        if (entity.getType() == null) {
+            typeName = "Indefinido";
+        } else {
+            switch (entity.getType().intValue()) {
+                case 1 -> typeName = "Archivo";
+                case 2 -> typeName = "Texto";
+                default -> typeName = "Indefinido";
+            }
+        }
+
+        return ParameterDto.builder()
+                .id(entity.getId())
+                .parentParameterId(entity.getParentParameterId())
+                .parameterId(entity.getParameterId())
+                .code(entity.getCode())
+                .type(entity.getType())
+                .typeName(typeName)
+                .name(name)
+                .shortName(entity.getShortName())
+                .orderNumber(entity.getOrderNumber())
+                .active(Boolean.TRUE.equals(entity.getActive()))
+                .deleted(entity.getDeletedAt() != null)
+                .build();
+    }
+
+    /** Convert List<Entity> -> List<DTO> directamente */
+    public List<ParameterDto> toDtoListFromEntities(List<ParameterEntity> entities) {
+        return entities != null
+                ? entities.stream().map(this::toDto).collect(Collectors.toList())
+                : List.of();
+    }
 }

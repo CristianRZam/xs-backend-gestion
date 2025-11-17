@@ -28,6 +28,4 @@ public class AuthController {
         return ApiResponseFactory.success(result, "Inicio de sesión exitoso. Token generado correctamente.");
     }
 
-
-
 }

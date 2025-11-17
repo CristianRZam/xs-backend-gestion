@@ -20,6 +20,6 @@ public interface ParameterUseCase {
     Parameter update(@Valid ParameterUpdateRequest request);
     boolean delete(Long id);
     Boolean updateStatus(Long id);
-    List<Parameter> getListParameterByCode(String code);
+    List<ParameterDto> getListParameterByCode(String code);
     byte[] getFileAsBytes(String filename);
 }

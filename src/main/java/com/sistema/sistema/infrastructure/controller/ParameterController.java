@@ -36,7 +36,7 @@ public class ParameterController {
     @PostMapping("/init")
     public ResponseEntity<ApiResponse<ParameterViewResponse>> initParametersView(@RequestBody ParameterViewRequest request) {
         ParameterViewResponse data = parameterUseCase.init(request);
-        return ApiResponseFactory.success(data, "Lista de parametros y resumen cargados correctamente");
+        return ApiResponseFactory.success(data, "Lista de parámetros y resumen cargados correctamente");
     }
 
     @PreAuthorize("hasAuthority('CREATE_PARAMETER') or hasAuthority('EDIT_PARAMETER')")
