@@ -1,6 +1,5 @@
 package com.sistema.sistema.infrastructure.security;
 
-import com.sistema.sistema.infrastructure.exception.BusinessException;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -26,36 +25,78 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
+    /**
+     * NO filtrar:
+     * - OPTIONS (CORS)
+     * - archivos estáticos (Angular)
+     * - rutas públicas
+     * SOLO filtrar /api/**
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+
+        String path = request.getRequestURI();
+
+        // Permitir Angular completamente
+        if (path.equals("/") ||
+                path.startsWith("/index") ||
+                path.startsWith("/static/") ||
+                path.startsWith("/assets/") ||
+                path.endsWith(".js") ||
+                path.endsWith(".css") ||
+                path.endsWith(".json") ||
+                path.endsWith(".png") ||
+                path.endsWith(".jpg") ||
+                path.endsWith(".ico")) {
+            return true; // NO filtrar
+        }
+
+        // Permitir login
+        if (path.equals("/api/login")) {
+            return true;
+        }
+
+        // Permitir OPTIONS para CORS
+        if (request.getMethod().equalsIgnoreCase("OPTIONS")) {
+            return true;
+        }
+
+        // Solo filtrar /api/**
+        return !path.startsWith("/api/");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+
         String token = getTokenFromRequest(request);
 
         if (token != null && tokenProvider.validateToken(token)) {
+
             String username = tokenProvider.getUsernameFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
             if (!userDetails.isEnabled()) {
-                // Aquí devolvemos la respuesta 401 directamente
                 response.setStatus(HttpStatus.UNAUTHORIZED.value());
                 response.setContentType("application/json");
                 response.getWriter().write(
-                        Objects.requireNonNull(ApiResponseFactory.error(HttpStatus.UNAUTHORIZED, "El usuario está deshabilitado", List.of())
-                                .getBody()).toString()
+                        Objects.requireNonNull(ApiResponseFactory.error(
+                                HttpStatus.UNAUTHORIZED, "El usuario está deshabilitado", List.of()
+                        ).getBody()).toString()
                 );
                 return;
             }
 
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
         filterChain.doFilter(request, response);
     }
-
-
 
     private String getTokenFromRequest(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
