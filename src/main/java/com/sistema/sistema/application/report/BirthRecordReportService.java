@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Objects;
 
 @Service
@@ -37,15 +39,33 @@ public class BirthRecordReportService {
             document.open();
 
             // ===== FUENTES =====
-            BaseFont handwrittenFont = BaseFont.createFont(
-                    "C:/Windows/Fonts/segoesc.ttf",
+            // Carga segura de fuente desde resources/fonts/
+            InputStream fontStream = getClass().getResourceAsStream("/static/fonts/segoesc.ttf"); // o "/fonts/dancingscript-regular.ttf"
+            if (fontStream == null) {
+                throw new RuntimeException("No se encontró la fuente segoesc.ttf en /resources/fonts/. Coloca el .ttf allí.");
+            }
+
+            byte[] fontBytes;
+            try {
+                fontBytes = fontStream.readAllBytes();
+            } catch (IOException ioe) {
+                throw new RuntimeException("Error leyendo la fuente desde resources", ioe);
+            }
+
+// Create BaseFont from byte[] (evita dependencias en rutas del SO)
+            BaseFont handwrittenBase = BaseFont.createFont(
+                    "segoesc.ttf",   // nombre correcto
                     BaseFont.IDENTITY_H,
-                    BaseFont.EMBEDDED
+                    BaseFont.EMBEDDED,
+                    false,           // <-- cached debe ser false si usas byte[]
+                    fontBytes,
+                    null
             );
+
 
             Font titleFont = new Font(Font.HELVETICA, 14, Font.BOLD);
             Font labelFont = new Font(Font.HELVETICA, 10, Font.BOLD);
-            Font scriptFont = new Font(handwrittenFont, 11);
+            Font scriptFont = new Font(handwrittenBase, 11);
             Font headerFont = new Font(Font.HELVETICA, 12, Font.BOLD);
             Font yearFont = new Font(Font.HELVETICA, 12, Font.BOLD);
             Font actNumberFont = new Font(Font.HELVETICA, 10, Font.BOLD);
@@ -209,7 +229,7 @@ public class BirthRecordReportService {
             return baos.toByteArray();
 
         } catch (Exception e) {
-            throw new RuntimeException("Error generando certificado", e);
+            throw new RuntimeException("Error generando certificado: " + e, e);
         }
     }
 
