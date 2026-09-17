@@ -23,5 +23,4 @@ public class ParameterDto {
     private Long orderNumber;
     private Boolean active;
     private Boolean deleted;
-
 }

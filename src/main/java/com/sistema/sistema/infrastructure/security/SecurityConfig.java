@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/swagger-ui/index.html"
                         ).permitAll()
                         .requestMatchers("/api/login").permitAll()
+                        .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         //PARAMETER
                         .requestMatchers(HttpMethod.POST, "/api/parameter/create").hasAuthority("CREATE_PARAMETER")
@@ -110,6 +111,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
+                "http://localhost:5173",
                 "http://127.0.0.1:4200",
                 "http://192.168.1.216:8080"
         ));

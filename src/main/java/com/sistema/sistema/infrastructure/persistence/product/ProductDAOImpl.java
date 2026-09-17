@@ -187,7 +187,9 @@ public class ProductDAOImpl implements ProductRepository {
 
     @Override
     public ProductDTO update(ProductUpdateRequest request) {
-        ProductEntity entity = new ProductEntity();
+
+        ProductEntity entity = jpa.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con id: " + request.getId()));
 
         entity.setId(request.getId());
         entity.setCode(request.getCode());
@@ -251,6 +253,23 @@ public class ProductDAOImpl implements ProductRepository {
         return mapper.toDomain(entity);
     }
 
+    @Override
+    public boolean updateStock(Long id, long stock) {
+
+        ProductEntity entity = jpa.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Producto no encontrado con id: " + id));
+
+        entity.setTotalStock(stock);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        entity.setModifiedBy(currentUserId);
+        entity.setModifiedAt(LocalDateTime.now());
+
+        jpa.save(entity);
+
+        return true;
+    }
 
 
 }

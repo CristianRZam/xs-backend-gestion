@@ -28,4 +28,6 @@ public interface ProductRepository {
     boolean updateStatus(Long id);
 
     Product findByCode(String code, long id);
+
+    boolean updateStock(Long id, long stock);
 }

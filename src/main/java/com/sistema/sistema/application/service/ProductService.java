@@ -8,13 +8,18 @@ import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.application.dto.response.product.ProductFormResponse;
 import com.sistema.sistema.application.dto.response.product.ProductViewResponse;
+import com.sistema.sistema.application.dto.response.productimage.ProductImageDTO;
+import com.sistema.sistema.application.dto.response.productimage.StoredFileDTO;
 import com.sistema.sistema.domain.model.Product;
 import com.sistema.sistema.domain.repository.ParameterRepository;
+import com.sistema.sistema.domain.repository.ProductImageRepository;
 import com.sistema.sistema.domain.repository.ProductRepository;
+import com.sistema.sistema.domain.usecase.FileStorageUseCase;
 import com.sistema.sistema.domain.usecase.ProductUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,10 +28,15 @@ public class ProductService implements ProductUseCase {
 
     private final ProductRepository repository;
     private final ParameterRepository parameterRepository;
+    private final ProductImageRepository productImageRepository;
+    private final FileStorageUseCase fileStorageUseCase;
 
-    public ProductService(ProductRepository repository, ParameterRepository parameterRepository) {
+    public ProductService(ProductRepository repository, ParameterRepository parameterRepository,
+                          ProductImageRepository productImageRepository,  FileStorageUseCase fileStorageUseCase) {
         this.repository = repository;
         this.parameterRepository = parameterRepository;
+        this.productImageRepository = productImageRepository;
+        this.fileStorageUseCase = fileStorageUseCase;
     }
 
     @Override
@@ -52,6 +62,10 @@ public class ProductService implements ProductUseCase {
        if(request.getId() != null){
            ProductDTO product = repository.findById(request.getId());
            response.setProduct(product);
+
+           List<ProductImageDTO> images =
+                   productImageRepository.findByProductIdAndActiveTrue(request.getId());
+           response.setImages(images);
        }
         List<ParameterDto> categories = parameterRepository.getListParameterByCode("CATEGORIA_PRODUCTO");
         List<ParameterDto> unitMeasures = parameterRepository.getListParameterByCode("UNIDAD_MEDIDA_PRODUCTO");
@@ -63,7 +77,12 @@ public class ProductService implements ProductUseCase {
     }
 
     @Override
-    public ProductDTO create(ProductCreateRequest request) {
+    public ProductDTO create(
+            ProductCreateRequest request,
+            MultipartFile[] images,
+            String mainImageKey
+    ) {
+
         Product codigoProducto = repository.findByCode(request.getCode(), 0);
         if (codigoProducto != null) {
             throw new BusinessException(
@@ -71,11 +90,51 @@ public class ProductService implements ProductUseCase {
                     "El código '" + request.getCode() + "' ya pertenece a otro producto."
             );
         }
-        return repository.create(request);
+
+        // Crear producto
+        ProductDTO product = repository.create(request);
+
+        if (images != null && images.length > 0) {
+            try {
+                List<StoredFileDTO> storedImages = fileStorageUseCase.upload(
+                        "products/" + product.getId(),
+                        images
+                );
+
+                // Guardar imágenes
+                List<ProductImageDTO> savedImages =
+                        productImageRepository.saveImages(product.getId(), storedImages);
+
+                // Marcar principal
+                resolveMainImage(
+                        product.getId(),
+                        savedImages,
+                        List.of(),
+                        mainImageKey
+                );
+
+            } catch (Exception e) {
+                throw new BusinessException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Error al subir imágenes del producto"
+                );
+            }
+        }
+
+        return product;
     }
 
+
+
     @Override
-    public ProductDTO update(ProductUpdateRequest request) {
+    public ProductDTO update(
+            ProductUpdateRequest request,
+            MultipartFile[] images,
+            List<ProductImageDTO> imagesToKeep,
+            String mainImageKey
+    ) {
+
+        // Validar código
         Product codigoProducto = repository.findByCode(request.getCode(), request.getId());
         if (codigoProducto != null) {
             throw new BusinessException(
@@ -83,8 +142,58 @@ public class ProductService implements ProductUseCase {
                     "El código '" + request.getCode() + "' ya pertenece a otro producto."
             );
         }
-        return repository.update(request);
+
+        // Actualizar producto
+        ProductDTO product = repository.update(request);
+
+        // Obtener imágenes actuales
+        List<ProductImageDTO> currentImages =
+                productImageRepository.findByProductId(product.getId());
+
+        List<Long> keepIds = imagesToKeep == null
+                ? List.of()
+                : imagesToKeep.stream().map(ProductImageDTO::getId).toList();
+
+        List<ProductImageDTO> imagesToDelete = currentImages.stream()
+                .filter(img -> !keepIds.contains(img.getId()))
+                .toList();
+
+        // Eliminar imágenes
+        imagesToDelete.forEach(img ->
+                productImageRepository.deleteById(img.getId())
+        );
+
+        // Subir nuevas imágenes
+        List<ProductImageDTO> newImages = List.of();
+        if (images != null && images.length > 0) {
+            try {
+                List<StoredFileDTO> storedImages = fileStorageUseCase.upload(
+                        "products/" + product.getId(),
+                        images
+                );
+                newImages = productImageRepository.saveImages(
+                        product.getId(),
+                        storedImages
+                );
+            } catch (Exception e) {
+                throw new BusinessException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Error al subir nuevas imágenes del producto"
+                );
+            }
+        }
+
+        // Resolver principal
+        resolveMainImage(
+                product.getId(),
+                newImages,
+                imagesToKeep != null ? imagesToKeep : List.of(),
+                mainImageKey
+        );
+
+        return product;
     }
+
 
     @Override
     public boolean delete(Long id) {
@@ -94,6 +203,51 @@ public class ProductService implements ProductUseCase {
     @Override
     public boolean updateStatus(Long id) {
         return repository.updateStatus(id);
+    }
+
+
+    private void resolveMainImage(
+            Long productId,
+            List<ProductImageDTO> newImages,
+            List<ProductImageDTO> existingImages,
+            String mainImageKey
+    ) {
+
+        // Resetear todas
+        productImageRepository.clearMainByProduct(productId);
+
+        if (mainImageKey == null || mainImageKey.isBlank()) {
+            return;
+        }
+
+        // Normalizar key (quita espacios y comillas)
+        String key = mainImageKey.trim();
+
+        if (key.isBlank()) {
+            return;
+        }
+
+        if (key.startsWith("\"") && key.endsWith("\"")) {
+            key = key.substring(1, key.length() - 1);
+        }
+
+        // Imagen existente
+        if (key.startsWith("existing:")) {
+            Long id = Long.parseLong(key.replace("existing:", ""));
+            productImageRepository.markAsMain(id);
+            return;
+        }
+
+        // Imagen nueva
+        if (key.startsWith("temp:")) {
+            int index = Integer.parseInt(key.replace("temp:", ""));
+            if (index >= 0 && index < newImages.size()) {
+                productImageRepository.markAsMain(
+                        newImages.get(index).getId()
+                );
+            }
+        }
+
     }
 
 }
