@@ -61,6 +61,7 @@ public class CashSessionDAOImpl implements CashSessionRepository {
                         new EntityNotFoundException("No existe una sesión de caja abierta."));
 
         CashSession session = mapper.toDomain(entity);
+        session.setExpectedAmount(calculateExpectedAmount(entity.getId()));
 
         jpa.findUserNamesBySessionId(entity.getId()).ifPresent(names -> mapper.addUserNames(session, names));
 
@@ -133,5 +134,15 @@ public class CashSessionDAOImpl implements CashSessionRepository {
                 jpa.findByDeletedAtIsNullOrderByIdDesc();
 
         return mapper.toDomainList(entities);
+    }
+
+    @Override
+    public java.math.BigDecimal calculateExpectedAmount(Long sessionId) {
+        CashSessionEntity session = jpa.findById(sessionId).orElseThrow(() ->
+                new EntityNotFoundException("Sesión de caja no encontrada con id: " + sessionId));
+        java.math.BigDecimal cashSales = jpa.sumCashPaymentsBySessionId(sessionId);
+        return session.getOpeningAmount().add(
+                cashSales == null ? java.math.BigDecimal.ZERO : cashSales
+        );
     }
 }

@@ -177,6 +177,11 @@ public class ProductDAOImpl implements ProductRepository {
         entity.setBasePrice(request.getBasePrice());
         entity.setPromoPrice(request.getPromoPrice());
         entity.setBaseCost(request.getBaseCost());
+        entity.setReservedStock(
+                request.getReservedStock() != null
+                        ? request.getReservedStock()
+                        : 0L
+        );
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
         entity.setCreatedBy(currentUserId);
@@ -201,6 +206,10 @@ public class ProductDAOImpl implements ProductRepository {
         entity.setBasePrice(request.getBasePrice());
         entity.setPromoPrice(request.getPromoPrice());
         entity.setBaseCost(request.getBaseCost());
+
+        if (request.getReservedStock() != null) {
+            entity.setReservedStock(request.getReservedStock());
+        }
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
         entity.setModifiedBy(currentUserId);
@@ -269,6 +278,26 @@ public class ProductDAOImpl implements ProductRepository {
         jpa.save(entity);
 
         return true;
+    }
+
+    @Override
+    public boolean reserveStock(Long id, long quantity) {
+        return jpa.reserveStock(id, quantity) > 0;
+    }
+
+    @Override
+    public void releaseReservedStock(Long id, long quantity) {
+        jpa.releaseReservedStock(id, quantity);
+    }
+
+    @Override
+    public boolean consumeAvailableStock(Long id, long quantity) {
+        return jpa.consumeAvailableStock(id, quantity) > 0;
+    }
+
+    @Override
+    public boolean consumeReservedStock(Long id, long quantity) {
+        return jpa.consumeReservedStock(id, quantity) > 0;
     }
 
 

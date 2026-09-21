@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 public interface JpaCashSessionRepository extends JpaRepository<CashSessionEntity, Long> {
 
@@ -40,4 +41,13 @@ public interface JpaCashSessionRepository extends JpaRepository<CashSessionEntit
 
     List<CashSessionEntity>
     findByDeletedAtIsNullOrderByIdDesc();
+
+    @Query(value = """
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM payments p INNER JOIN sales s ON s.id = p.sale_id
+            WHERE p.cash_session_id = :sessionId
+              AND s.status = 'COMPLETED' AND s.deleted_at IS NULL
+              AND p.payment_method = 'CASH'
+            """, nativeQuery = true)
+    BigDecimal sumCashPaymentsBySessionId(@Param("sessionId") Long sessionId);
 }

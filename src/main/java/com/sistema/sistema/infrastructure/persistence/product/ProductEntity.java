@@ -52,6 +52,9 @@ public class ProductEntity {
     @Column(name = "total_stock")
     private Long totalStock = 0L;
 
+    @Column(name = "reserved_stock", nullable = false)
+    private Long reservedStock = 0L;
+
     @Column(name = "active")
     private Boolean active = true;
 

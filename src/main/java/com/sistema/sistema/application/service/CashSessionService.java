@@ -95,16 +95,15 @@ public class CashSessionService implements CashSessionUseCase {
             );
         }
 
-        if (expectedAmount == null) {
-            throw new BusinessException(
-                    HttpStatus.BAD_REQUEST,
-                    "El monto esperado es obligatorio."
-            );
+        CashSession current = repository.getCurrentSession();
+        if (!current.getId().equals(id)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Solo puede cerrar la sesión de caja abierta.");
         }
 
-        if (difference == null) {
-            difference = closingAmount.subtract(expectedAmount);
-        }
+        // El esperado es calculado en servidor: apertura + cobros en efectivo.
+        expectedAmount = repository.calculateExpectedAmount(id);
+
+        difference = closingAmount.subtract(expectedAmount);
 
         return repository.closeSession(
                 id,

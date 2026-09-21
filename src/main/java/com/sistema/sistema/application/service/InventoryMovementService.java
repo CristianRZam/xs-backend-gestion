@@ -10,6 +10,7 @@ import com.sistema.sistema.domain.usecase.InventoryMovementUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -41,6 +42,7 @@ public class InventoryMovementService implements InventoryMovementUseCase {
     }
 
     @Override
+    @Transactional
     public InventoryMovementDTO create(
             InventoryMovementCreateRequest request
     ) {
@@ -60,6 +62,21 @@ public class InventoryMovementService implements InventoryMovementUseCase {
                         request.getType(),
                         request.getQuantity()
                 );
+
+        BigDecimal reservedStock = BigDecimal.valueOf(
+                product.getReservedStock() != null
+                        ? product.getReservedStock()
+                        : 0L
+        );
+
+        if (currentStock.compareTo(reservedStock) < 0) {
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "El movimiento dejaría el stock por debajo de la cantidad reservada ("
+                            + reservedStock
+                            + ")."
+            );
+        }
 
 
         request.setPreviousStock(previousStock);

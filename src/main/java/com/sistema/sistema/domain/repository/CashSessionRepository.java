@@ -17,4 +17,6 @@ public interface CashSessionRepository {
 
     List<CashSession> getHistory();
 
+    BigDecimal calculateExpectedAmount(Long sessionId);
+
 }

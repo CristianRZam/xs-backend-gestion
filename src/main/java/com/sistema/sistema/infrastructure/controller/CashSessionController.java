@@ -49,7 +49,7 @@ public class CashSessionController {
 
     // CERRAR SESIÓN
     @PutMapping("/close/{id}")
-    public ResponseEntity<ApiResponse<CashSession>> closeSession(@PathVariable Long id, @RequestParam BigDecimal closingAmount, @RequestParam BigDecimal expectedAmount,
+    public ResponseEntity<ApiResponse<CashSession>> closeSession(@PathVariable Long id, @RequestParam BigDecimal closingAmount, @RequestParam(required = false) BigDecimal expectedAmount,
             @RequestParam(required = false) BigDecimal difference, @RequestParam(required = false) String closingComment ) {
 
         CashSession data = cashSessionUseCase.closeSession(id, closingAmount, expectedAmount, difference, closingComment);

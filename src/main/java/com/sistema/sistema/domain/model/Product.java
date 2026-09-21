@@ -26,6 +26,7 @@ public class Product {
     private BigDecimal promoPrice;
     private BigDecimal baseCost;
     private Long totalStock;
+    private Long reservedStock;
     private Boolean active;
 
     // Auditoría

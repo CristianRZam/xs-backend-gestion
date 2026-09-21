@@ -24,6 +24,7 @@ public class ProductDTO {
     private BigDecimal promoPrice;
     private BigDecimal baseCost;
     private Long totalStock;
+    private Long reservedStock;
     private Boolean active;
     private Boolean deleted;
 }

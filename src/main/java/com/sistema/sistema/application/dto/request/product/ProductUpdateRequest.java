@@ -44,4 +44,7 @@ public class ProductUpdateRequest {
     @NotNull(message = "El costo base es obligatorio")
     @Min(value = 0, message = "El costo base no puede ser negativo")
     private BigDecimal baseCost;
+
+    @Min(value = 0, message = "El stock reservado no puede ser negativo")
+    private Long reservedStock;
 }

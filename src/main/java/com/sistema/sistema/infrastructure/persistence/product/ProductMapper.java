@@ -31,6 +31,7 @@ public class ProductMapper {
                 .promoPrice(entity.getPromoPrice())
                 .baseCost(entity.getBaseCost())
                 .totalStock(entity.getTotalStock())
+                .reservedStock(entity.getReservedStock())
                 .active(entity.getActive())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
@@ -72,6 +73,7 @@ public class ProductMapper {
                 .promoPrice(entity.getPromoPrice())
                 .baseCost(entity.getBaseCost())
                 .totalStock(entity.getTotalStock())
+                .reservedStock(entity.getReservedStock())
                 .active(entity.getActive())
                 .deleted(entity.getDeletedAt() != null)
                 .build();

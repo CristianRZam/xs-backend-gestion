@@ -30,4 +30,12 @@ public interface ProductRepository {
     Product findByCode(String code, long id);
 
     boolean updateStock(Long id, long stock);
+
+    boolean reserveStock(Long id, long quantity);
+
+    void releaseReservedStock(Long id, long quantity);
+
+    boolean consumeAvailableStock(Long id, long quantity);
+
+    boolean consumeReservedStock(Long id, long quantity);
 }

@@ -3,6 +3,7 @@ package com.sistema.sistema.infrastructure.persistence.product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -127,5 +128,54 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     Optional<ProductEntity> findByCode(String code);
 
     Optional<ProductEntity> findByCodeAndIdNot(String code, Long id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p
+            SET p.reservedStock = COALESCE(p.reservedStock, 0) + :quantity
+            WHERE p.id = :productId
+            AND p.deletedAt IS NULL
+            AND p.active = true
+            AND COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) >= :quantity
+            """)
+    int reserveStock(
+            @Param("productId") Long productId,
+            @Param("quantity") Long quantity
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p
+            SET p.reservedStock = CASE
+                WHEN COALESCE(p.reservedStock, 0) >= :quantity
+                    THEN COALESCE(p.reservedStock, 0) - :quantity
+                ELSE 0
+            END
+            WHERE p.id = :productId
+            AND p.deletedAt IS NULL
+            """)
+    int releaseReservedStock(
+            @Param("productId") Long productId,
+            @Param("quantity") Long quantity
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p SET p.totalStock = p.totalStock - :quantity
+            WHERE p.id = :productId AND p.deletedAt IS NULL AND p.active = true
+            AND COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) >= :quantity
+            """)
+    int consumeAvailableStock(@Param("productId") Long productId, @Param("quantity") Long quantity);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p
+            SET p.totalStock = p.totalStock - :quantity,
+                p.reservedStock = p.reservedStock - :quantity
+            WHERE p.id = :productId AND p.deletedAt IS NULL
+            AND COALESCE(p.totalStock, 0) >= :quantity
+            AND COALESCE(p.reservedStock, 0) >= :quantity
+            """)
+    int consumeReservedStock(@Param("productId") Long productId, @Param("quantity") Long quantity);
 
 }
