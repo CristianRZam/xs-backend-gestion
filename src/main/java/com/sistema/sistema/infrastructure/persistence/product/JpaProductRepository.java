@@ -13,6 +13,8 @@ import java.util.Optional;
 
 public interface JpaProductRepository extends JpaRepository<ProductEntity, Long> {
 
+    List<ProductEntity> findByActiveTrueAndDeletedAtIsNullOrderByNameAsc();
+
     @Query("""
     SELECT p FROM ProductEntity p
     WHERE p.deletedAt IS NULL

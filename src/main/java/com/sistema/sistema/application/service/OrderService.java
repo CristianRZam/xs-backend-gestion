@@ -49,6 +49,15 @@ public class OrderService implements OrderUseCase {
             );
         }
 
+        if (order == null) {
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "La información de la orden es obligatoria."
+            );
+        }
+
+        // El identificador se asigna en persistencia desde el reloj del servidor.
+        order.setOrderNumber("SERVER_GENERATED");
         validateOrder(order);
 
         if (order.getOrderType() == null ||

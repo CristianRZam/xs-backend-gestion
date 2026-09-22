@@ -16,7 +16,8 @@ import java.util.List;
 @Setter
 public class SaleCreateRequest {
     private Long orderId;
-    @NotBlank private String saleNumber;
+    // El servidor genera el número con la fecha y hora de registro.
+    private String saleNumber;
     @PositiveOrZero private BigDecimal discount = BigDecimal.ZERO;
     @Valid @NotEmpty private List<SaleItemRequest> items;
     @Valid @NotEmpty private List<PaymentRequest> payments;

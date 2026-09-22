@@ -8,12 +8,17 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.LinkedHashMap;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
 
 @Repository
 public class SaleDAOImpl implements SaleRepository {
+    private static final String DOCUMENT_NUMBER_PREFIX = "VTA-";
+    private static final DateTimeFormatter DOCUMENT_NUMBER_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
     private final JpaSaleRepository jpa;
     public SaleDAOImpl(JpaSaleRepository jpa) { this.jpa = jpa; }
 
@@ -21,9 +26,9 @@ public class SaleDAOImpl implements SaleRepository {
     public SaleDTO create(SaleCreateRequest request, Long cashRegisterId, Long cashSessionId,
                           BigDecimal subtotal, BigDecimal total) {
         Long userId = SecurityUtil.getCurrentUserId();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nextSaleTime(LocalDateTime.now().withNano(0));
         SaleEntity sale = SaleEntity.builder()
-                .saleNumber(request.getSaleNumber().trim()).orderId(request.getOrderId())
+                .saleNumber(formatSaleNumber(now)).orderId(request.getOrderId())
                 .cashRegisterId(cashRegisterId).subtotal(subtotal)
                 .discount(zero(request.getDiscount())).total(total).status("COMPLETED")
                 .createdBy(userId).createdAt(now).build();
@@ -47,8 +52,11 @@ public class SaleDAOImpl implements SaleRepository {
         return toDto(jpa.findByIdAndDeletedAtIsNull(id).orElseThrow(
                 () -> new EntityNotFoundException("Venta no encontrada con id: " + id)));
     }
-    @Override public List<SaleDTO> getAll() { return jpa.findAll().stream()
-            .filter(s -> s.getDeletedAt() == null).map(this::toDto).toList(); }
+    @Override public List<SaleDTO> getAll() {
+        return jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc().stream()
+                .map(this::toDto)
+                .toList();
+    }
     @Override public boolean existsByOrderId(Long orderId) {
         return jpa.existsByOrderIdAndDeletedAtIsNull(orderId);
     }
@@ -89,4 +97,19 @@ public class SaleDAOImpl implements SaleRepository {
                 .build();
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
+
+    private LocalDateTime nextSaleTime(LocalDateTime now) {
+        LocalDateTime candidateTime = now;
+        do {
+            String candidate = formatSaleNumber(candidateTime);
+            if (!jpa.existsBySaleNumber(candidate)) {
+                return candidateTime;
+            }
+            candidateTime = candidateTime.plusSeconds(1);
+        } while (true);
+    }
+
+    private String formatSaleNumber(LocalDateTime value) {
+        return DOCUMENT_NUMBER_PREFIX + DOCUMENT_NUMBER_FORMAT.format(value);
+    }
 }

@@ -11,8 +11,10 @@ public interface JpaOrderRepository extends JpaRepository<OrderEntity, Long> {
 
     Optional<OrderEntity> findByIdAndDeletedAtIsNull(Long id);
 
-    List<OrderEntity> findByDeletedAtIsNullOrderByIdDesc();
+    List<OrderEntity> findByDeletedAtIsNullOrderByCreatedAtDescIdDesc();
 
     boolean existsByOrderNumberAndDeletedAtIsNull(String orderNumber);
+
+    boolean existsByOrderNumber(String orderNumber);
 
 }

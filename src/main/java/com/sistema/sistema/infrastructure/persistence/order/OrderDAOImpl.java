@@ -7,10 +7,14 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Repository
 public class OrderDAOImpl implements OrderRepository {
+    private static final String DOCUMENT_NUMBER_PREFIX = "ORD-";
+    private static final DateTimeFormatter DOCUMENT_NUMBER_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final JpaOrderRepository jpa;
     private final OrderMapper mapper;
@@ -31,11 +35,12 @@ public class OrderDAOImpl implements OrderRepository {
     public Order create(Order order) {
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nextOrderTime(LocalDateTime.now().withNano(0));
 
         OrderEntity entity = mapper.toEntity(order);
 
         entity.setId(null);
+        entity.setOrderNumber(formatOrderNumber(now));
 
         entity.setCreatedBy(currentUserId);
         entity.setCreatedAt(now);
@@ -88,7 +93,7 @@ public class OrderDAOImpl implements OrderRepository {
     public List<Order> getAll() {
 
         List<OrderEntity> entities =
-                jpa.findByDeletedAtIsNullOrderByIdDesc();
+                jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc();
 
         return mapper.toDomainList(entities);
     }
@@ -114,7 +119,6 @@ public class OrderDAOImpl implements OrderRepository {
         Long currentUserId = SecurityUtil.getCurrentUserId();
         LocalDateTime now = LocalDateTime.now();
 
-        entity.setOrderNumber(order.getOrderNumber());
         entity.setCashRegisterId(order.getCashRegisterId());
         entity.setOrderType(order.getOrderType());
         entity.setTableNumber(order.getTableNumber());
@@ -202,5 +206,20 @@ public class OrderDAOImpl implements OrderRepository {
         entity.setDeletedAt(LocalDateTime.now());
 
         jpa.save(entity);
+    }
+
+    private LocalDateTime nextOrderTime(LocalDateTime now) {
+        LocalDateTime candidateTime = now;
+        do {
+            String candidate = formatOrderNumber(candidateTime);
+            if (!jpa.existsByOrderNumber(candidate)) {
+                return candidateTime;
+            }
+            candidateTime = candidateTime.plusSeconds(1);
+        } while (true);
+    }
+
+    private String formatOrderNumber(LocalDateTime value) {
+        return DOCUMENT_NUMBER_PREFIX + DOCUMENT_NUMBER_FORMAT.format(value);
     }
 }

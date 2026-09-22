@@ -25,16 +25,11 @@ public class OrderController {
     // ==========================================================
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Order>> create(
-            @RequestBody Order request
-    ) {
+    public ResponseEntity<ApiResponse<Order>> create(@RequestBody Order request) {
 
         Order data = orderUseCase.create(request);
+        return ApiResponseFactory.created(data, "Orden creada correctamente");
 
-        return ApiResponseFactory.created(
-                data,
-                "Orden creada correctamente"
-        );
     }
 
     // ==========================================================
@@ -42,16 +37,11 @@ public class OrderController {
     // ==========================================================
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Order>> getById(
-            @PathVariable Long id
-    ) {
+    public ResponseEntity<ApiResponse<Order>> getById(@PathVariable Long id) {
 
         Order data = orderUseCase.getById(id);
+        return ApiResponseFactory.success(data, "Orden obtenida correctamente");
 
-        return ApiResponseFactory.success(
-                data,
-                "Orden obtenida correctamente"
-        );
     }
 
     // ==========================================================
@@ -62,11 +52,8 @@ public class OrderController {
     public ResponseEntity<ApiResponse<List<Order>>> getAll() {
 
         List<Order> data = orderUseCase.getAll();
+        return ApiResponseFactory.success(data, "Ordenes obtenidas correctamente");
 
-        return ApiResponseFactory.success(
-                data,
-                "Ordenes obtenidas correctamente"
-        );
     }
 
     // ==========================================================
@@ -74,20 +61,11 @@ public class OrderController {
     // ==========================================================
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Order>> update(
-            @PathVariable Long id,
-            @RequestBody Order request
-    ) {
+    public ResponseEntity<ApiResponse<Order>> update(@PathVariable Long id, @RequestBody Order request) {
 
-        Order data = orderUseCase.update(
-                id,
-                request
-        );
+        Order data = orderUseCase.update(id, request);
+        return ApiResponseFactory.success(data, "Orden actualizada correctamente");
 
-        return ApiResponseFactory.success(
-                data,
-                "Orden actualizada correctamente"
-        );
     }
 
     // ==========================================================
@@ -95,22 +73,12 @@ public class OrderController {
     // ==========================================================
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<Order>> updateStatus(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> request
-    ) {
+    public ResponseEntity<ApiResponse<Order>> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> request) {
 
         String status = request.get("status");
+        Order data = orderUseCase.updateStatus(id, status);
+        return ApiResponseFactory.success(data, "Estado de la orden actualizado correctamente");
 
-        Order data = orderUseCase.updateStatus(
-                id,
-                status
-        );
-
-        return ApiResponseFactory.success(
-                data,
-                "Estado de la orden actualizado correctamente"
-        );
     }
 
     // ==========================================================
@@ -118,16 +86,11 @@ public class OrderController {
     // ==========================================================
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(
-            @PathVariable Long id
-    ) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
 
         orderUseCase.delete(id);
+        return ApiResponseFactory.success(null, "Orden eliminada correctamente");
 
-        return ApiResponseFactory.success(
-                null,
-                "Orden eliminada correctamente"
-        );
     }
 
 }

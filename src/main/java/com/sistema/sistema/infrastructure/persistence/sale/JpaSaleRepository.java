@@ -8,7 +8,9 @@ import java.util.List;
 
 public interface JpaSaleRepository extends JpaRepository<SaleEntity, Long> {
     Optional<SaleEntity> findByIdAndDeletedAtIsNull(Long id);
+    boolean existsBySaleNumber(String saleNumber);
     boolean existsByOrderIdAndDeletedAtIsNull(Long orderId);
+    List<SaleEntity> findByDeletedAtIsNullOrderByCreatedAtDescIdDesc();
 
     @Query(value = """
             SELECT p.full_name AS createdByName
@@ -19,7 +21,7 @@ public interface JpaSaleRepository extends JpaRepository<SaleEntity, Long> {
             """, nativeQuery = true)
     Optional<SaleUserNameProjection> findCreatedByName(@Param("saleId") Long saleId);
 
-    @Query("SELECT DISTINCT s FROM SaleEntity s JOIN s.payments p WHERE p.cashSessionId = :sessionId AND s.deletedAt IS NULL AND s.status = 'COMPLETED'")
+    @Query("SELECT DISTINCT s FROM SaleEntity s JOIN s.payments p WHERE p.cashSessionId = :sessionId AND s.deletedAt IS NULL AND s.status = 'COMPLETED' ORDER BY s.createdAt DESC, s.id DESC")
     List<SaleEntity> findCompletedByCashSessionId(@Param("sessionId") Long sessionId);
 
     @Query(value = "SELECT name FROM products WHERE id = :productId", nativeQuery = true)
