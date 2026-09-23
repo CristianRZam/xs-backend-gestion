@@ -3,6 +3,7 @@ package com.sistema.sistema.application.service;
 import com.sistema.sistema.application.dto.request.notification.NotificationCreateRequest;
 import com.sistema.sistema.application.dto.response.notification.NotificationDTO;
 import com.sistema.sistema.application.dto.response.notification.NotificationUnreadCountDTO;
+import com.sistema.sistema.application.dto.response.notification.NotificationConfigurationDTO;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
 import com.sistema.sistema.domain.usecase.NotificationUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
@@ -18,8 +19,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Join;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.math.RoundingMode;
 import java.util.Collection;
 import java.util.List;
@@ -130,9 +135,60 @@ public class NotificationService implements NotificationUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<NotificationDTO> findForUser(Long userId) {
-        return userNotifications.findByUserIdAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqualOrderByNotificationCreatedAtDesc(
-                        userId,
-                        visibleSince()
+        return findForUser(userId, null, null, null, null, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NotificationDTO> findForUser(
+            Long userId,
+            String type,
+            String priority,
+            Boolean read,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String search
+    ) {
+        LocalDateTime createdSince = fromDate == null
+                ? visibleSince()
+                : max(visibleSince(), fromDate.atStartOfDay());
+        LocalDateTime createdBefore = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
+
+        Specification<UserNotificationEntity> specification = (root, query, builder) -> {
+            Join<UserNotificationEntity, NotificationEntity> notification = root.join("notification");
+            var predicate = builder.and(
+                    builder.equal(root.get("user").get("id"), userId),
+                    builder.isNull(root.get("dismissedAt")),
+                    builder.greaterThanOrEqualTo(notification.get("createdAt"), createdSince)
+            );
+            if (hasText(type)) {
+                predicate = builder.and(predicate, builder.equal(notification.get("type"), normalize(type)));
+            }
+            if (hasText(priority)) {
+                predicate = builder.and(predicate, builder.equal(notification.get("priority"), normalize(priority)));
+            }
+            if (read != null) {
+                predicate = read
+                        ? builder.and(predicate, builder.isNotNull(root.get("readAt")))
+                        : builder.and(predicate, builder.isNull(root.get("readAt")));
+            }
+            if (createdBefore != null) {
+                predicate = builder.and(predicate, builder.lessThan(notification.get("createdAt"), createdBefore));
+            }
+            if (hasText(search)) {
+                String term = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+                predicate = builder.and(predicate, builder.or(
+                        builder.like(builder.lower(notification.get("title")), term),
+                        builder.like(builder.lower(notification.get("message")), term),
+                        builder.like(builder.lower(builder.coalesce(notification.get("referenceType"), "")), term)
+                ));
+            }
+            return predicate;
+        };
+
+        return userNotifications.findAll(
+                        specification,
+                        Sort.by(Sort.Order.desc("notification.createdAt"), Sort.Order.desc("notification.id"))
                 )
                 .stream()
                 .map(userNotification -> toDto(
@@ -151,6 +207,19 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional(readOnly = true)
+    public List<NotificationDTO> findForCurrentSuperAdmin(
+            String type,
+            String priority,
+            Boolean read,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String search
+    ) {
+        return findForUser(requireCurrentSuperAdminId(), type, priority, read, fromDate, toDate, search);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public NotificationUnreadCountDTO countUnreadForUser(Long userId) {
         return new NotificationUnreadCountDTO(
                 userNotifications.countByUserIdAndReadAtIsNullAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqual(
@@ -164,6 +233,13 @@ public class NotificationService implements NotificationUseCase {
     @Transactional(readOnly = true)
     public NotificationUnreadCountDTO countUnreadForCurrentSuperAdmin() {
         return countUnreadForUser(requireCurrentSuperAdminId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NotificationConfigurationDTO getConfigurationForCurrentSuperAdmin() {
+        requireCurrentSuperAdminId();
+        return new NotificationConfigurationDTO(Math.max(visibleDays, 1));
     }
 
     @Override
@@ -265,5 +341,17 @@ public class NotificationService implements NotificationUseCase {
 
     private LocalDateTime visibleSince() {
         return LocalDateTime.now().minusDays(Math.max(visibleDays, 1));
+    }
+
+    private LocalDateTime max(LocalDateTime first, LocalDateTime second) {
+        return first.isAfter(second) ? first : second;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String normalize(String value) {
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 }

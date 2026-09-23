@@ -3,6 +3,7 @@ package com.sistema.sistema.infrastructure.controller;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.notification.NotificationDTO;
 import com.sistema.sistema.application.dto.response.notification.NotificationUnreadCountDTO;
+import com.sistema.sistema.application.dto.response.notification.NotificationConfigurationDTO;
 import com.sistema.sistema.domain.usecase.NotificationUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import org.springframework.http.ResponseEntity;
@@ -10,8 +11,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -25,9 +28,16 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<NotificationDTO>>> getAll() {
+    public ResponseEntity<ApiResponse<List<NotificationDTO>>> getAll(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) Boolean read,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate,
+            @RequestParam(required = false) String search
+    ) {
         return ApiResponseFactory.success(
-                notificationUseCase.findForCurrentSuperAdmin(),
+                notificationUseCase.findForCurrentSuperAdmin(type, priority, read, fromDate, toDate, search),
                 "Notificaciones obtenidas correctamente."
         );
     }
@@ -37,6 +47,14 @@ public class NotificationController {
         return ApiResponseFactory.success(
                 notificationUseCase.countUnreadForCurrentSuperAdmin(),
                 "Cantidad de notificaciones no leídas obtenida correctamente."
+        );
+    }
+
+    @GetMapping("/configuration")
+    public ResponseEntity<ApiResponse<NotificationConfigurationDTO>> getConfiguration() {
+        return ApiResponseFactory.success(
+                notificationUseCase.getConfigurationForCurrentSuperAdmin(),
+                "Configuración de notificaciones obtenida correctamente."
         );
     }
 
