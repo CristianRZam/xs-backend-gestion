@@ -13,6 +13,7 @@ import com.sistema.sistema.infrastructure.persistence.notification.UserNotificat
 import com.sistema.sistema.infrastructure.persistence.user.JpaUserRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,9 @@ public class NotificationService implements NotificationUseCase {
     private final JpaUserNotificationRepository userNotifications;
     private final JpaUserRepository users;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.notifications.visible-days:7}")
+    private long visibleDays;
 
     public NotificationService(
             JpaNotificationRepository notifications,
@@ -126,7 +130,10 @@ public class NotificationService implements NotificationUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<NotificationDTO> findForUser(Long userId) {
-        return userNotifications.findByUserIdAndDismissedAtIsNullOrderByNotificationCreatedAtDesc(userId)
+        return userNotifications.findByUserIdAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqualOrderByNotificationCreatedAtDesc(
+                        userId,
+                        visibleSince()
+                )
                 .stream()
                 .map(userNotification -> toDto(
                         userNotification.getNotification(),
@@ -146,7 +153,10 @@ public class NotificationService implements NotificationUseCase {
     @Transactional(readOnly = true)
     public NotificationUnreadCountDTO countUnreadForUser(Long userId) {
         return new NotificationUnreadCountDTO(
-                userNotifications.countByUserIdAndReadAtIsNullAndDismissedAtIsNull(userId)
+                userNotifications.countByUserIdAndReadAtIsNullAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqual(
+                        userId,
+                        visibleSince()
+                )
         );
     }
 
@@ -251,5 +261,9 @@ public class NotificationService implements NotificationUseCase {
         }
 
         return userId;
+    }
+
+    private LocalDateTime visibleSince() {
+        return LocalDateTime.now().minusDays(Math.max(visibleDays, 1));
     }
 }

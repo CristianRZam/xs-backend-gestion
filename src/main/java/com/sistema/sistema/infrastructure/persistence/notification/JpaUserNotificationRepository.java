@@ -11,9 +11,15 @@ import java.util.Optional;
 
 public interface JpaUserNotificationRepository extends JpaRepository<UserNotificationEntity, Long> {
 
-    List<UserNotificationEntity> findByUserIdAndDismissedAtIsNullOrderByNotificationCreatedAtDesc(Long userId);
+    List<UserNotificationEntity> findByUserIdAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqualOrderByNotificationCreatedAtDesc(
+            Long userId,
+            LocalDateTime createdSince
+    );
 
-    long countByUserIdAndReadAtIsNullAndDismissedAtIsNull(Long userId);
+    long countByUserIdAndReadAtIsNullAndDismissedAtIsNullAndNotificationCreatedAtGreaterThanEqual(
+            Long userId,
+            LocalDateTime createdSince
+    );
 
     Optional<UserNotificationEntity> findByNotificationIdAndUserIdAndDismissedAtIsNull(
             Long notificationId,
