@@ -1,12 +1,15 @@
 package com.sistema.sistema.infrastructure.persistence.cash;
 
 import com.sistema.sistema.domain.model.CashSession;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.domain.repository.CashSessionRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -128,12 +131,13 @@ public class CashSessionDAOImpl implements CashSessionRepository {
     // ==========================================================
 
     @Override
-    public List<CashSession> getHistory() {
-
-        List<CashSessionEntity> entities =
-                jpa.findByDeletedAtIsNullOrderByIdDesc();
-
-        return mapper.toDomainList(entities);
+    public PageResponseDTO<CashSession> getHistory(int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        var result = jpa.findByDeletedAtIsNullOrderByIdDesc(
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "id")));
+        return new PageResponseDTO<>(mapper.toDomainList(result.getContent()),
+                result.getTotalElements(), safePage, safeSize, result.hasNext());
     }
 
     @Override

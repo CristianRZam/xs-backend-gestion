@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.controller;
 
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.domain.model.CashSession;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.domain.usecase.CashSessionUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import org.springframework.http.ResponseEntity;
@@ -59,9 +60,10 @@ public class CashSessionController {
 
     // HISTORIAL DE SESIONES
     @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<CashSession>>> getHistory() {
-
-        List<CashSession> data = cashSessionUseCase.getHistory();
+    public ResponseEntity<ApiResponse<PageResponseDTO<CashSession>>> getHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PageResponseDTO<CashSession> data = cashSessionUseCase.getHistory(page, size);
         return ApiResponseFactory.success(data, "Historial de sesiones obtenido correctamente");
 
     }

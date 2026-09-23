@@ -1,6 +1,7 @@
 package com.sistema.sistema.application.service;
 
 import com.sistema.sistema.domain.model.CashSession;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.domain.repository.CashSessionRepository;
 import com.sistema.sistema.domain.usecase.CashSessionUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
@@ -119,7 +120,7 @@ public class CashSessionService implements CashSessionUseCase {
     // ==========================================================
 
     @Override
-    public List<CashSession> getHistory() {
-        return repository.getHistory();
+    public PageResponseDTO<CashSession> getHistory(int page, int size) {
+        return repository.getHistory(page, size);
     }
 }
