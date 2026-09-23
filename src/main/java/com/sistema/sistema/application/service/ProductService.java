@@ -83,6 +83,7 @@ public class ProductService implements ProductUseCase {
             String mainImageKey
     ) {
 
+        request.setCode(normalizeCode(request.getCode()));
         Product codigoProducto = repository.findByCode(request.getCode(), 0);
         if (codigoProducto != null) {
             throw new BusinessException(
@@ -135,6 +136,7 @@ public class ProductService implements ProductUseCase {
     ) {
 
         // Validar código
+        request.setCode(normalizeCode(request.getCode()));
         Product codigoProducto = repository.findByCode(request.getCode(), request.getId());
         if (codigoProducto != null) {
             throw new BusinessException(
@@ -205,6 +207,10 @@ public class ProductService implements ProductUseCase {
         return repository.updateStatus(id);
     }
 
+
+    private String normalizeCode(String code) {
+        return code == null ? null : code.trim().toUpperCase();
+    }
 
     private void resolveMainImage(
             Long productId,

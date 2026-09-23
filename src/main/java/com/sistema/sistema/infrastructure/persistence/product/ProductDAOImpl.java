@@ -254,9 +254,9 @@ public class ProductDAOImpl implements ProductRepository {
         ProductEntity entity;
 
         if (id == 0) {
-            entity = jpa.findByCode(code).orElse(null);
+            entity = jpa.findByCodeIgnoreCase(code.trim()).orElse(null);
         } else {
-            entity = jpa.findByCodeAndIdNot(code, id).orElse(null);
+            entity = jpa.findByCodeIgnoreCaseAndIdNot(code.trim(), id).orElse(null);
         }
 
         return mapper.toDomain(entity);

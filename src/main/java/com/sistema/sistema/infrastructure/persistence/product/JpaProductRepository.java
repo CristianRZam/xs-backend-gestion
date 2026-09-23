@@ -150,9 +150,9 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     );
 
 
-    Optional<ProductEntity> findByCode(String code);
+    Optional<ProductEntity> findByCodeIgnoreCase(String code);
 
-    Optional<ProductEntity> findByCodeAndIdNot(String code, Long id);
+    Optional<ProductEntity> findByCodeIgnoreCaseAndIdNot(String code, Long id);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
