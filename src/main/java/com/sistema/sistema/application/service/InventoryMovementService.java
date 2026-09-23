@@ -3,6 +3,7 @@ package com.sistema.sistema.application.service;
 import com.sistema.sistema.application.dto.request.inventorymovement.InventoryMovementCreateRequest;
 import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementDTO;
 import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementDetailDTO;
+import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementPageDTO;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.domain.repository.IventoryMovementRepository;
 import com.sistema.sistema.domain.repository.ProductRepository;
@@ -32,8 +33,19 @@ public class InventoryMovementService implements InventoryMovementUseCase {
     }
 
     @Override
-    public List<InventoryMovementDetailDTO> findAll(Long productId) {
-        return repository.findAll(productId);
+    public InventoryMovementPageDTO findPage(Long productId, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        List<InventoryMovementDetailDTO> movements = repository.findPage(productId, safePage, safeSize);
+        long totalElements = repository.countByProductId(productId);
+
+        return new InventoryMovementPageDTO(
+                movements,
+                totalElements,
+                safePage,
+                safeSize,
+                (long) (safePage + 1) * safeSize < totalElements
+        );
     }
 
     @Override

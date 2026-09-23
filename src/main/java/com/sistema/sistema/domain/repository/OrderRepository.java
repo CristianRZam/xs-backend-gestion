@@ -3,6 +3,8 @@ package com.sistema.sistema.domain.repository;
 import com.sistema.sistema.domain.model.Order;
 
 import java.util.List;
+import java.time.LocalDate;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 
 public interface OrderRepository {
 
@@ -11,6 +13,7 @@ public interface OrderRepository {
     Order getById(Long id);
 
     List<Order> getAll();
+    PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate);
 
     Order update(Long id, Order order);
 

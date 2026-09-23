@@ -47,10 +47,11 @@ public class InventoryCountService implements InventoryCountUseCase {
     @Override
     @Transactional
     public InventoryCountSessionEntity open(String comment) {
-        if (sessions.findFirstByBusinessDateAndStatusInOrderByIdDesc(
-                LocalDate.now(), List.of("OPEN", "REVIEW")
+        if (sessions.findFirstByStatusInOrderByOpenedAtDescIdDesc(
+                List.of("OPEN", "REVIEW")
         ).isPresent()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "Ya existe un conteo activo hoy.");
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "Existe un conteo pendiente. Debe finalizar o cancelar el último conteo antes de iniciar uno nuevo.");
         }
 
         var productList = products.findByActiveTrueAndDeletedAtIsNullOrderByNameAsc();
@@ -157,8 +158,8 @@ public class InventoryCountService implements InventoryCountUseCase {
 
     @Override
     public InventoryCountSessionEntity current() {
-        return sessions.findFirstByBusinessDateAndStatusInOrderByIdDesc(
-                LocalDate.now(), List.of("OPEN", "REVIEW")
+        return sessions.findFirstByStatusInOrderByOpenedAtDescIdDesc(
+                List.of("OPEN", "REVIEW")
         ).orElse(null);
     }
 

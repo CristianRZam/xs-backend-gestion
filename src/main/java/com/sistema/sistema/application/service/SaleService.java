@@ -22,6 +22,10 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.springframework.data.domain.PageRequest;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
 
 @Service
@@ -96,6 +100,7 @@ public class SaleService implements SaleUseCase {
 
     @Override public SaleDTO getById(Long id) { return saleRepository.getById(id); }
     @Override public List<SaleDTO> getAll() { return saleRepository.getAll(); }
+    @Override public PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) { return saleRepository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate); }
     @Override public CashSessionSalesSummaryDTO getCashSessionSummary(Long cashSessionId) {
         if (cashSessionId == null) throw new BusinessException(HttpStatus.BAD_REQUEST, "La sesión de caja es obligatoria.");
         return saleRepository.getCashSessionSummary(cashSessionId);

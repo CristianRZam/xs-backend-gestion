@@ -10,8 +10,7 @@ import java.util.Optional;
 public interface JpaInventoryCountSessionRepository
         extends JpaRepository<InventoryCountSessionEntity, Long> {
 
-    Optional<InventoryCountSessionEntity> findFirstByBusinessDateAndStatusInOrderByIdDesc(
-            LocalDate date,
+    Optional<InventoryCountSessionEntity> findFirstByStatusInOrderByOpenedAtDescIdDesc(
             List<String> statuses
     );
 

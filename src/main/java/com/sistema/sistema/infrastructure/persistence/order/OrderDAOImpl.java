@@ -7,6 +7,10 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -206,6 +210,13 @@ public class OrderDAOImpl implements OrderRepository {
         entity.setDeletedAt(LocalDateTime.now());
 
         jpa.save(entity);
+    }
+    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) {
+        LocalDateTime from = fromDate == null ? null : fromDate.atStartOfDay();
+        LocalDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<OrderEntity> result = from == null && to == null ? jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) : from != null && to != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(from, to, pageable) : from != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(from, pageable) : jpa.findByDeletedAtIsNullAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(to, pageable);
+        return new PageResponseDTO<>(mapper.toDomainList(result.getContent()), result.getTotalElements(), page, size, result.hasNext());
     }
 
     private LocalDateTime nextOrderTime(LocalDateTime now) {

@@ -7,7 +7,9 @@ import com.sistema.sistema.application.dto.response.inventorymovement.InventoryM
 import java.util.List;
 
 public interface IventoryMovementRepository {
-    List<InventoryMovementDetailDTO> findAll(Long productId);
+    List<InventoryMovementDetailDTO> findPage(Long productId, int page, int size);
+
+    long countByProductId(Long productId);
 
     InventoryMovementDTO create(InventoryMovementCreateRequest request);
 

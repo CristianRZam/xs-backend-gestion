@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.time.LocalDate;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 
 @Service
 public class OrderService implements OrderUseCase {
@@ -252,6 +254,7 @@ public class OrderService implements OrderUseCase {
 
         repository.delete(id);
     }
+    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) { return repository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate); }
 
     // ==========================================================
     // RESERVA DE STOCK

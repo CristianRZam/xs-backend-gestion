@@ -3,6 +3,8 @@ package com.sistema.sistema.infrastructure.controller;
 import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
+import java.time.LocalDate;
 import com.sistema.sistema.domain.usecase.SaleUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
@@ -19,8 +21,8 @@ public class SaleController {
     @PostMapping public ResponseEntity<ApiResponse<SaleDTO>> create(@Valid @RequestBody SaleCreateRequest request) {
         return ApiResponseFactory.created(saleUseCase.create(request), "Venta registrada correctamente");
     }
-    @GetMapping public ResponseEntity<ApiResponse<List<SaleDTO>>> getAll() {
-        return ApiResponseFactory.success(saleUseCase.getAll(), "Ventas obtenidas correctamente");
+    @GetMapping public ResponseEntity<ApiResponse<PageResponseDTO<SaleDTO>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate) {
+        return ApiResponseFactory.success(saleUseCase.getPage(page, size, fromDate, toDate), "Ventas obtenidas correctamente");
     }
     @GetMapping("/{id}") public ResponseEntity<ApiResponse<SaleDTO>> getById(@PathVariable Long id) {
         return ApiResponseFactory.success(saleUseCase.getById(id), "Venta obtenida correctamente");

@@ -4,14 +4,13 @@ package com.sistema.sistema.infrastructure.controller;
 import com.sistema.sistema.application.dto.request.inventorymovement.InventoryMovementCreateRequest;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementDTO;
-import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementDetailDTO;
+import com.sistema.sistema.application.dto.response.inventorymovement.InventoryMovementPageDTO;
 import com.sistema.sistema.domain.usecase.InventoryMovementUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 
 @RestController
@@ -30,8 +29,12 @@ public class InventoryMovementController {
 
 
     @GetMapping("/product/{productId}")
-    public ResponseEntity<ApiResponse<List<InventoryMovementDetailDTO>>> findAll(@PathVariable Long productId) {
-        List<InventoryMovementDetailDTO> movements = inventoryMovementUseCase.findAll(productId);
+    public ResponseEntity<ApiResponse<InventoryMovementPageDTO>> findAll(
+            @PathVariable Long productId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        InventoryMovementPageDTO movements = inventoryMovementUseCase.findPage(productId, page, size);
 
         return ApiResponseFactory.success(movements, "Movimientos de inventario cargados correctamente.");
     }

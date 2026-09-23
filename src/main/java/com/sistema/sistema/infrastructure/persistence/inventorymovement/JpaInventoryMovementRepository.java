@@ -4,6 +4,7 @@ import com.sistema.sistema.application.dto.response.inventorymovement.InventoryM
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -63,7 +64,9 @@ public interface JpaInventoryMovementRepository extends JpaRepository<InventoryM
     ORDER BY im.created_at DESC
 
     """, nativeQuery = true)
-    List<Object[]> findMovementDetail(@Param("productId") Long productId);
+    List<Object[]> findMovementDetail(@Param("productId") Long productId, Pageable pageable);
+
+    long countByProductId(Long productId);
 
 
 }

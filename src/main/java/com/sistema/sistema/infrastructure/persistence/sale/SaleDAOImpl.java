@@ -8,6 +8,10 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -56,6 +60,13 @@ public class SaleDAOImpl implements SaleRepository {
         return jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc().stream()
                 .map(this::toDto)
                 .toList();
+    }
+    @Override public PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) {
+        LocalDateTime from = fromDate == null ? null : fromDate.atStartOfDay();
+        LocalDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<SaleEntity> result = from == null && to == null ? jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) : from != null && to != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(from, to, pageable) : from != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(from, pageable) : jpa.findByDeletedAtIsNullAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(to, pageable);
+        return new PageResponseDTO<>(result.getContent().stream().map(this::toDto).toList(), result.getTotalElements(), page, size, result.hasNext());
     }
     @Override public boolean existsByOrderId(Long orderId) {
         return jpa.existsByOrderIdAndDeletedAtIsNull(orderId);

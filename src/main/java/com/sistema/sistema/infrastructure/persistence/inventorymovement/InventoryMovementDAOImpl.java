@@ -6,6 +6,7 @@ import com.sistema.sistema.application.dto.response.inventorymovement.InventoryM
 import com.sistema.sistema.domain.repository.IventoryMovementRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -27,9 +28,9 @@ public class InventoryMovementDAOImpl implements IventoryMovementRepository {
     }
 
     @Override
-    public List<InventoryMovementDetailDTO> findAll(Long productId) {
+    public List<InventoryMovementDetailDTO> findPage(Long productId, int page, int size) {
 
-        return jpa.findMovementDetail(productId)
+        return jpa.findMovementDetail(productId, PageRequest.of(page, size))
                 .stream()
                 .map(r -> InventoryMovementDetailDTO.builder()
 
@@ -68,6 +69,11 @@ public class InventoryMovementDAOImpl implements IventoryMovementRepository {
 
                         .build())
                 .toList();
+    }
+
+    @Override
+    public long countByProductId(Long productId) {
+        return jpa.countByProductId(productId);
     }
 
     @Override

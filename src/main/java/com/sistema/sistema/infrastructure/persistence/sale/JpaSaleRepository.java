@@ -4,9 +4,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface JpaSaleRepository extends JpaRepository<SaleEntity, Long> {
+    Page<SaleEntity> findByDeletedAtIsNullOrderByCreatedAtDescIdDesc(Pageable pageable);
+    Page<SaleEntity> findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(LocalDateTime fromDate, Pageable pageable);
+    Page<SaleEntity> findByDeletedAtIsNullAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(LocalDateTime toDate, Pageable pageable);
+    Page<SaleEntity> findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(LocalDateTime fromDate, LocalDateTime toDate, Pageable pageable);
     Optional<SaleEntity> findByIdAndDeletedAtIsNull(Long id);
     boolean existsBySaleNumber(String saleNumber);
     boolean existsByOrderIdAndDeletedAtIsNull(Long orderId);

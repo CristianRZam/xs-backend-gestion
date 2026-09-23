@@ -1,6 +1,8 @@
 package com.sistema.sistema.infrastructure.controller;
 
 import com.sistema.sistema.application.dto.response.ApiResponse;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
+import java.time.LocalDate;
 import com.sistema.sistema.domain.model.Order;
 import com.sistema.sistema.domain.usecase.OrderUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
@@ -49,9 +51,9 @@ public class OrderController {
     // ==========================================================
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Order>>> getAll() {
+    public ResponseEntity<ApiResponse<PageResponseDTO<Order>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate) {
 
-        List<Order> data = orderUseCase.getAll();
+        PageResponseDTO<Order> data = orderUseCase.getPage(page, size, fromDate, toDate);
         return ApiResponseFactory.success(data, "Ordenes obtenidas correctamente");
 
     }
