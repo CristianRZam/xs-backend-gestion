@@ -2,8 +2,10 @@ package com.sistema.sistema;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(scanBasePackages = {"com.sistema.sistema"})
+@EnableScheduling
 public class XsSistemaGestionApplication {
     public static void main(String[] args) {
         SpringApplication.run(XsSistemaGestionApplication.class, args);

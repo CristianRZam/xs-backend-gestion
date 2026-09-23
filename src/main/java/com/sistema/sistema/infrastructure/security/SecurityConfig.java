@@ -47,6 +47,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/login").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        // NOTIFICATIONS
+                        .requestMatchers("/api/notifications/**").hasAuthority("ROLE_SUPER_ADMIN")
                         //PARAMETER
                         .requestMatchers(HttpMethod.POST, "/api/parameter/create").hasAuthority("CREATE_PARAMETER")
                         .requestMatchers(HttpMethod.PUT, "/api/parameter/update").hasAuthority("EDIT_PARAMETER")

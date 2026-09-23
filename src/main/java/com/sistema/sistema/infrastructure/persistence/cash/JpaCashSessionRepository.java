@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public interface JpaCashSessionRepository extends JpaRepository<CashSessionEntity, Long> {
 
@@ -38,6 +39,11 @@ public interface JpaCashSessionRepository extends JpaRepository<CashSessionEntit
     );
 
     boolean existsByStatusAndDeletedAtIsNull(String status);
+
+    List<CashSessionEntity> findByStatusAndDeletedAtIsNullAndOpenedAtBefore(
+            String status,
+            LocalDateTime openedBefore
+    );
 
     List<CashSessionEntity>
     findByDeletedAtIsNullOrderByIdDesc();

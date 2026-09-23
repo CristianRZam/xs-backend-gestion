@@ -10,10 +10,33 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface JpaProductRepository extends JpaRepository<ProductEntity, Long> {
 
     List<ProductEntity> findByActiveTrueAndDeletedAtIsNullOrderByNameAsc();
+
+    List<ProductEntity> findByActiveTrueAndDeletedAtIsNullAndTotalStockLessThanEqualOrderByNameAsc(
+            Long stockThreshold
+    );
+
+    @Query("""
+            SELECT p FROM ProductEntity p
+            WHERE p.active = true
+              AND p.deletedAt IS NULL
+              AND p.createdAt <= :createdBefore
+              AND NOT EXISTS (
+                  SELECT movement.id FROM InventoryMovementEntity movement
+                  WHERE movement.productId = p.id
+                    AND movement.deletedAt IS NULL
+                    AND movement.createdAt >= :movementSince
+              )
+            ORDER BY p.name ASC
+            """)
+    List<ProductEntity> findActiveProductsWithoutMovementSince(
+            @Param("createdBefore") LocalDateTime createdBefore,
+            @Param("movementSince") LocalDateTime movementSince
+    );
 
     @Query("""
     SELECT p FROM ProductEntity p

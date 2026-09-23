@@ -13,6 +13,7 @@ import com.sistema.sistema.domain.repository.ProductRepository;
 import com.sistema.sistema.domain.repository.SaleRepository;
 import com.sistema.sistema.domain.usecase.CashSessionUseCase;
 import com.sistema.sistema.domain.usecase.SaleUseCase;
+import com.sistema.sistema.domain.usecase.NotificationUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,15 +31,18 @@ public class SaleService implements SaleUseCase {
     private final ProductRepository productRepository;
     private final CashSessionUseCase cashSessionUseCase;
     private final IventoryMovementRepository inventoryRepository;
+    private final NotificationUseCase notificationUseCase;
 
     public SaleService(SaleRepository saleRepository, OrderRepository orderRepository,
                        ProductRepository productRepository, CashSessionUseCase cashSessionUseCase,
-                       IventoryMovementRepository inventoryRepository) {
+                       IventoryMovementRepository inventoryRepository,
+                       NotificationUseCase notificationUseCase) {
         this.saleRepository = saleRepository;
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.cashSessionUseCase = cashSessionUseCase;
         this.inventoryRepository = inventoryRepository;
+        this.notificationUseCase = notificationUseCase;
     }
 
     @Override @Transactional
@@ -86,6 +90,7 @@ public class SaleService implements SaleUseCase {
             inventoryRepository.create(movement);
         }
         if (order != null) orderRepository.updateStatus(order.getId(), "COMPLETED");
+        notificationUseCase.createDigitalPaymentNotifications(sale);
         return sale;
     }
 

@@ -31,5 +31,15 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, Long> {
             "AND u.deletedAt IS NULL")
     Optional<UserEntity> findByUsernameWithRolesAndPerson(@Param("username") String username);
 
+    @Query("SELECT DISTINCT u FROM UserEntity u " +
+            "JOIN u.userRoles ur " +
+            "JOIN ur.role r " +
+            "WHERE u.active = TRUE " +
+            "AND u.deletedAt IS NULL " +
+            "AND ur.deletedAt IS NULL " +
+            "AND r.active = TRUE " +
+            "AND r.deletedAt IS NULL " +
+            "AND r.name = 'SUPER_ADMIN'")
+    List<UserEntity> findActiveSuperAdmins();
 
 }
