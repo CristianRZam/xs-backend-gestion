@@ -1,6 +1,7 @@
 package com.sistema.sistema.infrastructure.controller;
 
 import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
+import com.sistema.sistema.application.dto.request.sale.SaleCancellationRequest;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/sales")
@@ -26,6 +28,12 @@ public class SaleController {
     }
     @GetMapping("/{id}") public ResponseEntity<ApiResponse<SaleDTO>> getById(@PathVariable Long id) {
         return ApiResponseFactory.success(saleUseCase.getById(id), "Venta obtenida correctamente");
+    }
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<SaleDTO>> cancel(@PathVariable Long id,
+                                                        @Valid @RequestBody SaleCancellationRequest request) {
+        return ApiResponseFactory.success(saleUseCase.cancel(id, request), "Venta anulada correctamente");
     }
 
     @GetMapping("/cash-session/{cashSessionId}")

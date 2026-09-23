@@ -15,5 +15,7 @@ public interface SaleRepository {
     List<SaleDTO> getAll();
     PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate);
     boolean existsByOrderId(Long orderId);
+    boolean isOriginalCashSessionOpen(Long saleId);
+    SaleDTO cancel(Long saleId, String reason);
     CashSessionSalesSummaryDTO getCashSessionSummary(Long cashSessionId);
 }

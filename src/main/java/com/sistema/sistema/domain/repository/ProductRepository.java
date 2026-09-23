@@ -38,4 +38,6 @@ public interface ProductRepository {
     boolean consumeAvailableStock(Long id, long quantity);
 
     boolean consumeReservedStock(Long id, long quantity);
+
+    void restoreStock(Long id, long quantity);
 }

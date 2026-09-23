@@ -300,5 +300,12 @@ public class ProductDAOImpl implements ProductRepository {
         return jpa.consumeReservedStock(id, quantity) > 0;
     }
 
+    @Override
+    public void restoreStock(Long id, long quantity) {
+        if (jpa.restoreStock(id, quantity) == 0) {
+            throw new RuntimeException("Producto no encontrado con id: " + id);
+        }
+    }
+
 
 }

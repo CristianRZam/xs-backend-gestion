@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/login").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("ROLE_SUPER_ADMIN")
                         // NOTIFICATIONS
                         .requestMatchers("/api/notifications/**").hasAuthority("ROLE_SUPER_ADMIN")
                         //PARAMETER

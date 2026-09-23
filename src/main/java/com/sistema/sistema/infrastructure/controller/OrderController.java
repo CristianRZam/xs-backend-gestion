@@ -51,9 +51,9 @@ public class OrderController {
     // ==========================================================
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponseDTO<Order>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate) {
+    public ResponseEntity<ApiResponse<PageResponseDTO<Order>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate, @RequestParam(required = false) String status, @RequestParam(required = false) String search) {
 
-        PageResponseDTO<Order> data = orderUseCase.getPage(page, size, fromDate, toDate);
+        PageResponseDTO<Order> data = orderUseCase.getPage(page, size, fromDate, toDate, status, search);
         return ApiResponseFactory.success(data, "Ordenes obtenidas correctamente");
 
     }

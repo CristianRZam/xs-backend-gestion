@@ -10,9 +10,12 @@ import java.time.LocalDateTime;
 import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.ArrayList;
 
 @Repository
 public class OrderDAOImpl implements OrderRepository {
@@ -211,12 +214,47 @@ public class OrderDAOImpl implements OrderRepository {
 
         jpa.save(entity);
     }
-    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) {
+    @Override
+    public PageResponseDTO<Order> getPage(
+            int page,
+            int size,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String status,
+            String search
+    ) {
         LocalDateTime from = fromDate == null ? null : fromDate.atStartOfDay();
         LocalDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
-        PageRequest pageable = PageRequest.of(page, size);
-        Page<OrderEntity> result = from == null && to == null ? jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) : from != null && to != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(from, to, pageable) : from != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(from, pageable) : jpa.findByDeletedAtIsNullAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(to, pageable);
+        String requestedStatus = normalize(status);
+        String requestedSearch = normalize(search);
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+        );
+        Specification<OrderEntity> specification = (root, query, criteriaBuilder) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
+            if (from != null) predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
+            if (to != null) predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), to));
+            if (requestedStatus != null) predicates.add(criteriaBuilder.equal(root.get("status"), requestedStatus.toUpperCase()));
+            if (requestedSearch != null) {
+                String pattern = "%" + requestedSearch.toLowerCase() + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("orderNumber")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("tableNumber")), pattern)
+                ));
+            }
+            return criteriaBuilder.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        Page<OrderEntity> result = jpa.findAll(specification, pageable);
         return new PageResponseDTO<>(mapper.toDomainList(result.getContent()), result.getTotalElements(), page, size, result.hasNext());
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() || "ALL".equalsIgnoreCase(value)
+                ? null
+                : value.trim();
     }
 
     private LocalDateTime nextOrderTime(LocalDateTime now) {

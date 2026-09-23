@@ -16,7 +16,7 @@ public interface JpaSaleRepository extends JpaRepository<SaleEntity, Long> {
     Page<SaleEntity> findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(LocalDateTime fromDate, LocalDateTime toDate, Pageable pageable);
     Optional<SaleEntity> findByIdAndDeletedAtIsNull(Long id);
     boolean existsBySaleNumber(String saleNumber);
-    boolean existsByOrderIdAndDeletedAtIsNull(Long orderId);
+    boolean existsByOrderIdAndDeletedAtIsNullAndStatus(Long orderId, String status);
     List<SaleEntity> findByDeletedAtIsNullOrderByCreatedAtDescIdDesc();
 
     @Query(value = """
@@ -33,4 +33,16 @@ public interface JpaSaleRepository extends JpaRepository<SaleEntity, Long> {
 
     @Query(value = "SELECT name FROM products WHERE id = :productId", nativeQuery = true)
     String findProductName(@Param("productId") Long productId);
+
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM payments p
+                INNER JOIN cash_sessions cs ON cs.id = p.cash_session_id
+                WHERE p.sale_id = :saleId
+                  AND cs.status = 'OPEN'
+                  AND cs.deleted_at IS NULL
+            )
+            """, nativeQuery = true)
+    boolean isOriginalCashSessionOpen(@Param("saleId") Long saleId);
 }

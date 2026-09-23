@@ -13,7 +13,7 @@ public interface OrderRepository {
     Order getById(Long id);
 
     List<Order> getAll();
-    PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate);
+    PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search);
 
     Order update(Long id, Order order);
 

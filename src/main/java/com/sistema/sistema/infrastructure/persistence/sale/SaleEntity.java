@@ -21,6 +21,8 @@ public class SaleEntity {
     @Column(nullable = false, length = 20) private String status;
     @Column(name = "created_by") private Long createdBy;
     @Column(name = "created_at") private LocalDateTime createdAt;
+    @Column(name = "modified_by") private Long modifiedBy;
+    @Column(name = "modified_at") private LocalDateTime modifiedAt;
     @Column(name = "deleted_by") private Long deletedBy;
     @Column(name = "deleted_at") private LocalDateTime deletedAt;
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)

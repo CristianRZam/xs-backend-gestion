@@ -2,6 +2,7 @@ package com.sistema.sistema.application.service;
 
 import com.sistema.sistema.application.dto.request.inventorymovement.InventoryMovementCreateRequest;
 import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
+import com.sistema.sistema.application.dto.request.sale.SaleCancellationRequest;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
 import com.sistema.sistema.domain.model.CashSession;
@@ -106,6 +107,57 @@ public class SaleService implements SaleUseCase {
         return saleRepository.getCashSessionSummary(cashSessionId);
     }
 
+    @Override
+    @Transactional
+    public SaleDTO cancel(Long id, SaleCancellationRequest request) {
+        if (id == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El id de la venta es obligatorio.");
+        }
+        String reason = request == null || request.getReason() == null ? null : request.getReason().trim();
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El motivo de anulación es obligatorio.");
+        }
+
+        SaleDTO sale = saleRepository.getById(id);
+        if (!"COMPLETED".equals(sale.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Solo se pueden anular ventas completadas.");
+        }
+        if (!saleRepository.isOriginalCashSessionOpen(id)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "No se puede anular la venta porque su sesión de caja original ya está cerrada.");
+        }
+
+        Order order = sale.getOrderId() == null ? null : orderRepository.getById(sale.getOrderId());
+        Map<Long, Long> quantities = quantitiesByProductFromSale(sale);
+        for (Map.Entry<Long, Long> entry : quantities.entrySet()) {
+            ProductDTO product = productRepository.findById(entry.getKey());
+            if (product == null) {
+                throw new BusinessException(HttpStatus.NOT_FOUND, "Producto no encontrado.");
+            }
+            productRepository.restoreStock(entry.getKey(), entry.getValue());
+            InventoryMovementCreateRequest movement = new InventoryMovementCreateRequest();
+            movement.setProductId(entry.getKey());
+            movement.setType("SALE_RETURN");
+            movement.setQuantity(BigDecimal.valueOf(entry.getValue()));
+            movement.setPreviousStock(BigDecimal.valueOf(product.getTotalStock()));
+            movement.setCurrentStock(BigDecimal.valueOf(product.getTotalStock() + entry.getValue()));
+            movement.setReason("Anulación de venta " + sale.getSaleNumber() + ": " + reason);
+            movement.setReferenceType("SALE");
+            movement.setReferenceId(sale.getId());
+            inventoryRepository.create(movement);
+        }
+        if (order != null) {
+            for (Map.Entry<Long, Long> entry : quantities.entrySet()) {
+                if (!productRepository.reserveStock(entry.getKey(), entry.getValue())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST,
+                            "No se pudo reservar nuevamente el producto con id " + entry.getKey() + ".");
+                }
+            }
+            orderRepository.updateStatus(order.getId(), "READY");
+        }
+        return saleRepository.cancel(id, reason);
+    }
+
     private BigDecimal calculateTotal(SaleCreateRequest request) {
         BigDecimal itemTotal = request.getItems().stream().map(item -> item.getUnitPrice()
                 .multiply(item.getQuantity()).subtract(zero(item.getDiscount())))
@@ -128,6 +180,11 @@ public class SaleService implements SaleUseCase {
     private Map<Long, Long> quantitiesByProduct(List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> result = new HashMap<>();
         for (SaleCreateRequest.SaleItemRequest item : items) result.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
+        return result;
+    }
+    private Map<Long, Long> quantitiesByProductFromSale(SaleDTO sale) {
+        Map<Long, Long> result = new HashMap<>();
+        sale.getItems().forEach(item -> result.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum));
         return result;
     }
     private long exactQuantity(BigDecimal quantity) {

@@ -21,6 +21,10 @@ public class SaleDTO {
     private final Long createdBy;
     private final String createdByName;
     private final LocalDateTime createdAt;
+    private final String cancellationReason;
+    private final Long cancelledBy;
+    private final String cancelledByName;
+    private final LocalDateTime cancelledAt;
     private final List<SaleItemDTO> items;
     private final List<PaymentDTO> payments;
 

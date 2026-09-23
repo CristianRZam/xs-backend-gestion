@@ -254,7 +254,7 @@ public class OrderService implements OrderUseCase {
 
         repository.delete(id);
     }
-    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) { return repository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate); }
+    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search) { return repository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate, status, search); }
 
     // ==========================================================
     // RESERVA DE STOCK

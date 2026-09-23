@@ -203,4 +203,12 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             """)
     int consumeReservedStock(@Param("productId") Long productId, @Param("quantity") Long quantity);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p
+            SET p.totalStock = COALESCE(p.totalStock, 0) + :quantity
+            WHERE p.id = :productId AND p.deletedAt IS NULL
+            """)
+    int restoreStock(@Param("productId") Long productId, @Param("quantity") Long quantity);
+
 }

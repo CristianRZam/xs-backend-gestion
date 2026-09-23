@@ -24,7 +24,12 @@ public class SaleDAOImpl implements SaleRepository {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final JpaSaleRepository jpa;
-    public SaleDAOImpl(JpaSaleRepository jpa) { this.jpa = jpa; }
+    private final JpaSaleCancellationRepository cancellationJpa;
+
+    public SaleDAOImpl(JpaSaleRepository jpa, JpaSaleCancellationRepository cancellationJpa) {
+        this.jpa = jpa;
+        this.cancellationJpa = cancellationJpa;
+    }
 
     @Override
     public SaleDTO create(SaleCreateRequest request, Long cashRegisterId, Long cashSessionId,
@@ -69,7 +74,31 @@ public class SaleDAOImpl implements SaleRepository {
         return new PageResponseDTO<>(result.getContent().stream().map(this::toDto).toList(), result.getTotalElements(), page, size, result.hasNext());
     }
     @Override public boolean existsByOrderId(Long orderId) {
-        return jpa.existsByOrderIdAndDeletedAtIsNull(orderId);
+        return jpa.existsByOrderIdAndDeletedAtIsNullAndStatus(orderId, "COMPLETED");
+    }
+
+    @Override
+    public boolean isOriginalCashSessionOpen(Long saleId) {
+        return jpa.isOriginalCashSessionOpen(saleId);
+    }
+
+    @Override
+    public SaleDTO cancel(Long saleId, String reason) {
+        SaleEntity sale = jpa.findByIdAndDeletedAtIsNull(saleId).orElseThrow(
+                () -> new EntityNotFoundException("Venta no encontrada con id: " + saleId));
+        Long userId = SecurityUtil.getCurrentUserId();
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        sale.setStatus("CANCELLED");
+        sale.setModifiedBy(userId);
+        sale.setModifiedAt(now);
+        jpa.save(sale);
+        cancellationJpa.save(SaleCancellationEntity.builder()
+                .saleId(saleId)
+                .reason(reason)
+                .cancelledBy(userId)
+                .cancelledAt(now)
+                .build());
+        return toDto(sale);
     }
 
     @Override
@@ -94,11 +123,16 @@ public class SaleDAOImpl implements SaleRepository {
         String createdByName = jpa.findCreatedByName(sale.getId())
                 .map(SaleUserNameProjection::getCreatedByName)
                 .orElse(null);
+        SaleCancellationEntity cancellation = cancellationJpa.findBySaleId(sale.getId()).orElse(null);
         return SaleDTO.builder().id(sale.getId()).saleNumber(sale.getSaleNumber())
                 .orderId(sale.getOrderId()).cashRegisterId(sale.getCashRegisterId())
                 .subtotal(sale.getSubtotal()).discount(sale.getDiscount()).total(sale.getTotal())
                 .status(sale.getStatus()).createdBy(sale.getCreatedBy())
                 .createdByName(createdByName).createdAt(sale.getCreatedAt())
+                .cancellationReason(cancellation == null ? null : cancellation.getReason())
+                .cancelledBy(cancellation == null ? null : cancellation.getCancelledBy())
+                .cancelledByName(cancellation == null ? null : cancellationJpa.findCancelledByName(sale.getId()).orElse(null))
+                .cancelledAt(cancellation == null ? null : cancellation.getCancelledAt())
                 .items(sale.getItems().stream().map(i -> SaleDTO.SaleItemDTO.builder()
                         .productId(i.getProductId()).productName(jpa.findProductName(i.getProductId()))
                         .quantity(i.getQuantity()).unitPrice(i.getUnitPrice())
