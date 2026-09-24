@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/reports/**").hasAuthority("ROLE_SUPER_ADMIN")
                         // NOTIFICATIONS
                         .requestMatchers("/api/notifications/**").hasAuthority("ROLE_SUPER_ADMIN")
                         //PARAMETER
@@ -68,6 +69,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/user/init-form").hasAnyAuthority("CREATE_USER", "EDIT_USER")
                         .requestMatchers(HttpMethod.POST, "/api/user/export-pdf").hasAuthority("EXPORT_USER")
                         .requestMatchers(HttpMethod.POST, "/api/user/export-excel").hasAuthority("EXPORT_USER")
+                        // PRODUCT
+                        .requestMatchers(HttpMethod.POST, "/api/product/init").hasAuthority("VIEW_PRODUCT")
+                        .requestMatchers(HttpMethod.POST, "/api/product/init-form").hasAnyAuthority("CREATE_PRODUCT", "EDIT_PRODUCT")
+                        .requestMatchers(HttpMethod.POST, "/api/product/create").hasAuthority("CREATE_PRODUCT")
+                        .requestMatchers(HttpMethod.PUT, "/api/product/update").hasAuthority("EDIT_PRODUCT")
+                        .requestMatchers(HttpMethod.PUT, "/api/product/update-status").hasAuthority("EDIT_PRODUCT")
+                        .requestMatchers(HttpMethod.DELETE, "/api/product/delete/**").hasAuthority("DELETE_PRODUCT")
+                        .requestMatchers(HttpMethod.POST, "/api/product/export-pdf").hasAuthority("EXPORT_PRODUCT")
+                        .requestMatchers(HttpMethod.POST, "/api/product/export-excel").hasAuthority("EXPORT_PRODUCT")
                         //ROLE
                         .requestMatchers(HttpMethod.POST, "/api/role/create").hasAuthority("CREATE_ROLE")
                         .requestMatchers(HttpMethod.PUT, "/api/role/update").hasAuthority("EDIT_ROLE")
