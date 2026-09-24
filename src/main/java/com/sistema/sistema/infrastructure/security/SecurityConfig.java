@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -21,6 +22,9 @@ public class SecurityConfig {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
 
     public SecurityConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService) {
         this.tokenProvider = tokenProvider;
@@ -122,12 +126,10 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:4200",
-                "http://localhost:5173",
-                "http://127.0.0.1:4200",
-                "http://192.168.1.216:8080"
-        ));
+        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
