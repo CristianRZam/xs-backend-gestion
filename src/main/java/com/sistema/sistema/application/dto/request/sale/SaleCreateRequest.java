@@ -34,6 +34,7 @@ public class SaleCreateRequest {
     public static class PaymentRequest {
         @NotBlank private String paymentMethod;
         @NotNull @Positive private BigDecimal amount;
+        @Positive private BigDecimal receivedAmount;
         private String reference;
     }
 }

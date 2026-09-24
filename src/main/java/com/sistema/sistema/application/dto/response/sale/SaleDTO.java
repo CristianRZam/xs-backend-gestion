@@ -42,6 +42,8 @@ public class SaleDTO {
     public static class PaymentDTO {
         private final String paymentMethod;
         private final BigDecimal amount;
+        private final BigDecimal receivedAmount;
+        private final BigDecimal changeAmount;
         private final String reference;
     }
 }

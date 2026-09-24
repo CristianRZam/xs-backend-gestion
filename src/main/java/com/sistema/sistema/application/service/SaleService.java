@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -169,7 +170,35 @@ public class SaleService implements SaleUseCase {
     private void validatePayments(List<SaleCreateRequest.PaymentRequest> payments, BigDecimal total) {
         BigDecimal paid = payments.stream().map(SaleCreateRequest.PaymentRequest::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (paid.compareTo(total) != 0) throw new BusinessException(HttpStatus.BAD_REQUEST, "La suma de pagos debe coincidir con el total de la venta.");
+        if (paid.compareTo(total) != 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "La suma de pagos debe coincidir con el total de la venta.");
+        }
+
+        long cashPayments = payments.stream()
+                .filter(payment -> "CASH".equals(normalizePaymentMethod(payment.getPaymentMethod())))
+                .count();
+        if (cashPayments > 1) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "Solo se permite un pago en efectivo por venta.");
+        }
+
+        for (SaleCreateRequest.PaymentRequest payment : payments) {
+            String paymentMethod = normalizePaymentMethod(payment.getPaymentMethod());
+            if ("CASH".equals(paymentMethod)) {
+                if (payment.getReceivedAmount() == null) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST,
+                            "Debe indicar el monto recibido para el pago en efectivo.");
+                }
+                if (payment.getReceivedAmount().compareTo(payment.getAmount()) < 0) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST,
+                            "El monto recibido en efectivo no puede ser menor al importe aplicado.");
+                }
+            } else if (payment.getReceivedAmount() != null) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST,
+                        "El monto recibido solo se registra para pagos en efectivo.");
+            }
+        }
     }
     private void validateMatchesOrder(Order order, List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> requested = quantitiesByProduct(items);
@@ -192,4 +221,7 @@ public class SaleService implements SaleUseCase {
         catch (ArithmeticException exception) { throw new BusinessException(HttpStatus.BAD_REQUEST, "La cantidad debe ser un número entero."); }
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
+    private String normalizePaymentMethod(String paymentMethod) {
+        return paymentMethod == null ? "" : paymentMethod.trim().toUpperCase(Locale.ROOT);
+    }
 }

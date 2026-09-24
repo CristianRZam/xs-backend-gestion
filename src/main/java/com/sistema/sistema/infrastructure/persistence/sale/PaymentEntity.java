@@ -14,6 +14,8 @@ public class PaymentEntity {
     @Column(name = "cash_session_id", nullable = false) private Long cashSessionId;
     @Column(name = "payment_method", nullable = false, length = 30) private String paymentMethod;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal amount;
+    @Column(name = "received_amount", precision = 12, scale = 2) private BigDecimal receivedAmount;
+    @Column(name = "change_amount", precision = 12, scale = 2) private BigDecimal changeAmount;
     @Column(length = 100) private String reference;
     @Column(name = "created_by") private Long createdBy;
     @Column(name = "created_at") private LocalDateTime createdAt;

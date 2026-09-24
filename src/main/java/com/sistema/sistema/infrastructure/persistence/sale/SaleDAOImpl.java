@@ -15,6 +15,7 @@ import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
 
 @Repository
@@ -49,9 +50,15 @@ public class SaleDAOImpl implements SaleRepository {
                     .discount(zero(item.getDiscount())).subtotal(itemSubtotal).build());
         }
         for (SaleCreateRequest.PaymentRequest payment : request.getPayments()) {
+            String paymentMethod = payment.getPaymentMethod().trim().toUpperCase(Locale.ROOT);
+            BigDecimal receivedAmount = payment.getReceivedAmount();
+            BigDecimal changeAmount = "CASH".equals(paymentMethod)
+                    ? receivedAmount.subtract(payment.getAmount())
+                    : null;
             sale.getPayments().add(PaymentEntity.builder().sale(sale).cashSessionId(cashSessionId)
-                    .paymentMethod(payment.getPaymentMethod().trim().toUpperCase())
-                    .amount(payment.getAmount()).reference(payment.getReference())
+                    .paymentMethod(paymentMethod).amount(payment.getAmount())
+                    .receivedAmount(receivedAmount).changeAmount(changeAmount)
+                    .reference(payment.getReference())
                     .createdBy(userId).createdAt(now).build());
         }
         return toDto(jpa.save(sale));
@@ -138,7 +145,9 @@ public class SaleDAOImpl implements SaleRepository {
                         .quantity(i.getQuantity()).unitPrice(i.getUnitPrice())
                         .discount(i.getDiscount()).subtotal(i.getSubtotal()).build()).toList())
                 .payments(sale.getPayments().stream().map(p -> SaleDTO.PaymentDTO.builder()
-                        .paymentMethod(p.getPaymentMethod()).amount(p.getAmount()).reference(p.getReference()).build()).toList())
+                        .paymentMethod(p.getPaymentMethod()).amount(p.getAmount())
+                        .receivedAmount(p.getReceivedAmount()).changeAmount(p.getChangeAmount())
+                        .reference(p.getReference()).build()).toList())
                 .build();
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
