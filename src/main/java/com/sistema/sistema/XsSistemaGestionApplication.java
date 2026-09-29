@@ -4,11 +4,23 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.time.ZoneId;
+import java.util.TimeZone;
+
 @SpringBootApplication(scanBasePackages = {"com.sistema.sistema"})
 @EnableScheduling
 public class XsSistemaGestionApplication {
+
+    private static final String DEFAULT_TIME_ZONE = "America/Lima";
+
     public static void main(String[] args) {
+        configureDefaultTimeZone();
         SpringApplication.run(XsSistemaGestionApplication.class, args);
+    }
+
+    private static void configureDefaultTimeZone() {
+        String timeZoneId = System.getenv().getOrDefault("APP_TIME_ZONE", DEFAULT_TIME_ZONE);
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(timeZoneId)));
     }
 }
 
