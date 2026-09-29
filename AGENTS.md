@@ -431,6 +431,20 @@ No crear conversiones duplicadas innecesariamente.
 
 # CÓDIGO
 
+# LOGGING
+
+El logging aplica exclusivamente al backend `xs-sistema-gestion` y se basa en SLF4J/Logback incluido por Spring Boot; no agregues dependencias de logging alternativas.
+
+Antes de crear o editar una clase Java que participe en una operación (Controllers, Services/UseCases, adaptadores de persistencia, seguridad, almacenamiento, tareas o manejadores de excepciones):
+
+1. Revisa si ya tiene `Logger`, `@Slf4j` o logs equivalentes.
+2. Si no los tiene y el cambio incorpora o modifica un flujo relevante, agrega `@Slf4j` de Lombok o un `Logger` SLF4J siguiendo el estilo del archivo.
+3. Registra eventos significativos: inicio o resultado de acciones de negocio relevantes, decisiones importantes, fallos y excepciones.
+4. Usa el nivel correcto: `DEBUG` para detalle diagnóstico, `INFO` para hitos normales, `WARN` para rechazos recuperables o reglas de negocio, y `ERROR` con la excepción para fallos inesperados.
+5. Usa mensajes parametrizados (`log.info("Acción {}", id)`) y datos que permitan rastrear la operación, como identificadores no sensibles.
+
+Nunca escribas en logs contraseñas, tokens JWT, cabeceras de autorización, secretos, datos bancarios ni cuerpos completos de solicitudes/respuestas. Evita registrar datos personales salvo que sean imprescindibles y estén autorizados. No agregues logs de ruido en getters, mappers, DTOs ni bucles de alto volumen. Conserva la configuración de `application.properties`: los niveles se ajustan con `APP_LOG_LEVEL` y `SPRING_LOG_LEVEL`.
+
 Cuando implementes una funcionalidad:
 
 * entrega código funcional

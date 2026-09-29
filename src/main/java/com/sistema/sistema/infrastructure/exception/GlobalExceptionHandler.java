@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.exception;
 
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     // 1. Validación de request
@@ -30,6 +32,8 @@ public class GlobalExceptionHandler {
                     }
                 })
                 .collect(Collectors.toList());
+
+        log.warn("Solicitud rechazada por validación: {} error(es)", errors.size());
 
         return ApiResponseFactory.error(HttpStatus.BAD_REQUEST, "Error de validación", errors);
     }
@@ -68,24 +72,29 @@ public class GlobalExceptionHandler {
             userMessage = "Error en la base de datos.";
         }
 
+        log.error("Error de integridad de datos", ex);
+
         return ApiResponseFactory.error(HttpStatus.CONFLICT, userMessage, List.of(rootMessage));
     }
 
     // 3️. Entidades no encontradas
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<?> handleEntityNotFound(EntityNotFoundException ex) {
+        log.warn("Recurso no encontrado: {}", ex.getMessage());
         return ApiResponseFactory.error(HttpStatus.NOT_FOUND, "Recurso no encontrado", List.of(ex.getMessage()));
     }
 
     // 4. Errores de negocio personalizados
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<?> handleBusinessException(BusinessException ex) {
+        log.warn("Regla de negocio rechazada con estado {}: {}", ex.getStatus().value(), ex.getMessage());
         return ApiResponseFactory.error(ex.getStatus(), ex.getMessage(), List.of());
     }
 
     // 5️. Cualquier otra excepción no controlada
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneralExceptions(Exception ex) {
+        log.error("Error no controlado al procesar la solicitud", ex);
         return ApiResponseFactory.error(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor", List.of(ex.getMessage()));
     }
 
