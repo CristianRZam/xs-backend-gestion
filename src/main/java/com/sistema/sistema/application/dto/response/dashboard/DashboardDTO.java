@@ -19,7 +19,4 @@ public class DashboardDTO {
     private final List<DailySalesDTO> weeklySales;
     private final List<ProductSalesDTO> topProducts;
     private final List<PaymentMethodDTO> paymentMethods;
-    @Getter @Builder public static class DailySalesDTO { private final LocalDate date; private final BigDecimal total; }
-    @Getter @Builder public static class ProductSalesDTO { private final Long productId; private final String productName; private final Long quantity; }
-    @Getter @Builder public static class PaymentMethodDTO { private final String method; private final BigDecimal total; }
 }

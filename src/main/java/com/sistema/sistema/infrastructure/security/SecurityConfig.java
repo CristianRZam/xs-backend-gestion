@@ -82,6 +82,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/product/delete/**").hasAuthority("DELETE_PRODUCT")
                         .requestMatchers(HttpMethod.POST, "/api/product/export-pdf").hasAuthority("EXPORT_PRODUCT")
                         .requestMatchers(HttpMethod.POST, "/api/product/export-excel").hasAuthority("EXPORT_PRODUCT")
+                        // DASHBOARD
+                        .requestMatchers(HttpMethod.GET, "/api/dashboard").hasAuthority("VIEW_DASHBOARD")
                         //ROLE
                         .requestMatchers(HttpMethod.POST, "/api/role/create").hasAuthority("CREATE_ROLE")
                         .requestMatchers(HttpMethod.PUT, "/api/role/update").hasAuthority("EDIT_ROLE")

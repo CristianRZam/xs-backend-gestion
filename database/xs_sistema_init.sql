@@ -1137,6 +1137,7 @@ VALUES (1, 'crodriguezz', '$2a$12$1kDlNLmmYb5c57fFsuHiyOgOoX.FvnkZR0TSFFjQtrLnis
 
 -- Roles
 INSERT INTO roles (name, description, created_by) VALUES ('SUPER_ADMIN', 'Rol con todos los privilegios del sistema', 1);
+INSERT INTO roles (name, description, created_by) VALUES ('EMPLOYED', 'Rol para usuarios encargados de realizar ventas', 1);
 
 -- Asignar rol al usuario
 INSERT INTO user_roles (user_id, role_id, assigned_by)
