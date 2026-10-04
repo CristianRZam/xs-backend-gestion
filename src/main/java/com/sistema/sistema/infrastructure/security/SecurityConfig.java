@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtTokenProvider tokenProvider;
@@ -51,10 +53,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/login").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("ROLE_SUPER_ADMIN")
-                        .requestMatchers("/api/reports/**").hasAuthority("ROLE_SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("CANCEL_SALE")
+                        .requestMatchers("/api/reports/**").hasAuthority("VIEW_REPORT")
                         // NOTIFICATIONS
-                        .requestMatchers("/api/notifications/**").hasAuthority("ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/notifications/**").hasAuthority("VIEW_NOTIFICATION")
                         //PARAMETER
                         .requestMatchers(HttpMethod.POST, "/api/parameter/create").hasAuthority("CREATE_PARAMETER")
                         .requestMatchers(HttpMethod.PUT, "/api/parameter/update").hasAuthority("EDIT_PARAMETER")
@@ -82,6 +84,31 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/product/delete/**").hasAuthority("DELETE_PRODUCT")
                         .requestMatchers(HttpMethod.POST, "/api/product/export-pdf").hasAuthority("EXPORT_PRODUCT")
                         .requestMatchers(HttpMethod.POST, "/api/product/export-excel").hasAuthority("EXPORT_PRODUCT")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory-movement/product/**").hasAuthority("VIEW_PRODUCT_MOVEMENT")
+                        // CASH SESSION
+                        .requestMatchers(HttpMethod.POST, "/api/cash-session/open").hasAuthority("OPEN_CASH_SESSION")
+                        .requestMatchers(HttpMethod.PUT, "/api/cash-session/close/**").hasAuthority("CLOSE_CASH_SESSION")
+                        .requestMatchers(HttpMethod.GET, "/api/cash-session/history").hasAuthority("VIEW_CASH_SESSION_HISTORY")
+                        .requestMatchers(HttpMethod.GET, "/api/cash-session/current").hasAuthority("VIEW_CASH_SESSION")
+                        .requestMatchers(HttpMethod.GET, "/api/sales/cash-session/**").hasAuthority("VIEW_CASH_SESSION_SALES")
+                        // INVENTORY COUNT
+                        .requestMatchers(HttpMethod.POST, "/api/inventory-counts").hasAuthority("CREATE_INVENTORY_COUNT")
+                        .requestMatchers(HttpMethod.PUT, "/api/inventory-counts/*/review").hasAuthority("REVIEW_INVENTORY_COUNT")
+                        .requestMatchers(HttpMethod.PUT, "/api/inventory-counts/*/close").hasAuthority("CLOSE_INVENTORY_COUNT")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory-counts/current").hasAuthority("VIEW_INVENTORY_COUNT")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory-counts").hasAuthority("VIEW_INVENTORY_COUNT_HISTORY")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory-counts/*").hasAuthority("VIEW_INVENTORY_COUNT")
+                        // ORDERS
+                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAuthority("CREATE_ORDER")
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAuthority("VIEW_ORDER")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*").hasAuthority("VIEW_ORDER")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAuthority("UPDATE_ORDER_STATUS")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*").hasAuthority("EDIT_ORDER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/orders/*").hasAuthority("DELETE_ORDER")
+                        // SALES
+                        .requestMatchers(HttpMethod.POST, "/api/sales").hasAuthority("CREATE_SALE")
+                        .requestMatchers(HttpMethod.GET, "/api/sales").hasAuthority("VIEW_SALE")
+                        .requestMatchers(HttpMethod.GET, "/api/sales/*").hasAuthority("VIEW_SALE")
                         // DASHBOARD
                         .requestMatchers(HttpMethod.GET, "/api/dashboard").hasAuthority("VIEW_DASHBOARD")
                         //ROLE

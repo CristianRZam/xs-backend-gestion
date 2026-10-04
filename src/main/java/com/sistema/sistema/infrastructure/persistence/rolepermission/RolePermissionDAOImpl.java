@@ -7,12 +7,15 @@ import com.sistema.sistema.infrastructure.persistence.permission.JpaPermissionRe
 import com.sistema.sistema.infrastructure.persistence.role.RoleEntity;
 import com.sistema.sistema.infrastructure.persistence.role.JpaRoleRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Repository
+@Slf4j
 public class RolePermissionDAOImpl implements RolePermissionRepository {
     private final JpaRolePermissionRepository jpa;
     private final JpaRoleRepository roleJpa;
@@ -27,6 +30,7 @@ public class RolePermissionDAOImpl implements RolePermissionRepository {
     }
 
     @Override
+    @Transactional
     public Boolean updatePermissionByRole(PermissionUpdateRequest request) {
         Long roleId = request.getRoleId();
         List<Long> newPermissionIds = request.getPermissionIds();
@@ -77,6 +81,7 @@ public class RolePermissionDAOImpl implements RolePermissionRepository {
         }
 
         jpa.saveAll(toSave);
+        log.info("Permisos actualizados para rolId={}: asignados={}", roleId, newPermissionIds.size());
         return true;
     }
 }

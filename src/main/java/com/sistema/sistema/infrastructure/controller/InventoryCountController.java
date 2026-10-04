@@ -7,11 +7,13 @@ import com.sistema.sistema.infrastructure.persistence.inventorycount.InventoryCo
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inventory-counts")
+@Slf4j
 public class InventoryCountController {
     private final InventoryCountUseCase service;
     public InventoryCountController(InventoryCountUseCase service) { 
@@ -20,7 +22,9 @@ public class InventoryCountController {
     @PostMapping 
     public ResponseEntity<ApiResponse<InventoryCountSessionEntity>> open(@RequestBody(required = false) Map<String,String> body) { 
         
-        return ApiResponseFactory.created(service.open(body == null ? null : body.get("comment")), "Conteo iniciado correctamente"); 
+        InventoryCountSessionEntity data = service.open(body == null ? null : body.get("comment"));
+        log.info("Conteo de inventario iniciado: countId={}", data.getId());
+        return ApiResponseFactory.created(data, "Conteo iniciado correctamente"); 
     }
     
     @GetMapping("/current") 
@@ -48,6 +52,7 @@ public class InventoryCountController {
     @PutMapping("/{id}/review") 
     public ResponseEntity<ApiResponse<Map<String,Object>>> review(@PathVariable Long id, @RequestBody InventoryCountCloseRequest request) { 
         
+        log.info("Conteo de inventario enviado a revisión: countId={}", id);
         return ApiResponseFactory.success(service.review(id, request), "Diferencias calculadas correctamente"); 
         
     }
@@ -55,7 +60,9 @@ public class InventoryCountController {
     @PutMapping("/{id}/close") 
     public ResponseEntity<ApiResponse<InventoryCountSessionEntity>> close(@PathVariable Long id, @RequestBody InventoryCountCloseRequest request) { 
         
-        return ApiResponseFactory.success(service.close(id, request), "Conteo procesado correctamente"); 
+        InventoryCountSessionEntity data = service.close(id, request);
+        log.info("Conteo de inventario finalizado: countId={}", id);
+        return ApiResponseFactory.success(data, "Conteo procesado correctamente"); 
         
     }
 

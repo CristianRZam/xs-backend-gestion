@@ -34,8 +34,10 @@ import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class NotificationService implements NotificationUseCase {
 
     private final JpaNotificationRepository notifications;
@@ -201,13 +203,13 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotificationDTO> findForCurrentSuperAdmin() {
-        return findForUser(requireCurrentSuperAdminId());
+    public List<NotificationDTO> findForCurrentUser() {
+        return findForUser(requireCurrentUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotificationDTO> findForCurrentSuperAdmin(
+    public List<NotificationDTO> findForCurrentUser(
             String type,
             String priority,
             Boolean read,
@@ -215,7 +217,7 @@ public class NotificationService implements NotificationUseCase {
             LocalDate toDate,
             String search
     ) {
-        return findForUser(requireCurrentSuperAdminId(), type, priority, read, fromDate, toDate, search);
+        return findForUser(requireCurrentUserId(), type, priority, read, fromDate, toDate, search);
     }
 
     @Override
@@ -231,14 +233,14 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public NotificationUnreadCountDTO countUnreadForCurrentSuperAdmin() {
-        return countUnreadForUser(requireCurrentSuperAdminId());
+    public NotificationUnreadCountDTO countUnreadForCurrentUser() {
+        return countUnreadForUser(requireCurrentUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public NotificationConfigurationDTO getConfigurationForCurrentSuperAdmin() {
-        requireCurrentSuperAdminId();
+    public NotificationConfigurationDTO getConfigurationForCurrentUser() {
+        requireCurrentUserId();
         return new NotificationConfigurationDTO(Math.max(visibleDays, 1));
     }
 
@@ -256,8 +258,8 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional
-    public void markAsReadForCurrentSuperAdmin(Long notificationId) {
-        markAsRead(notificationId, requireCurrentSuperAdminId());
+    public void markAsReadForCurrentUser(Long notificationId) {
+        markAsRead(notificationId, requireCurrentUserId());
     }
 
     @Override
@@ -268,8 +270,8 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional
-    public void markAllAsReadForCurrentSuperAdmin() {
-        markAllAsRead(requireCurrentSuperAdminId());
+    public void markAllAsReadForCurrentUser() {
+        markAllAsRead(requireCurrentUserId());
     }
 
     private NotificationDTO toDto(NotificationEntity notification, boolean read, LocalDateTime readAt) {
@@ -322,7 +324,7 @@ public class NotificationService implements NotificationUseCase {
         }
     }
 
-    private Long requireCurrentSuperAdminId() {
+    private Long requireCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Long userId = SecurityUtil.getCurrentUserId();
 
@@ -330,12 +332,7 @@ public class NotificationService implements NotificationUseCase {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión.");
         }
 
-        boolean isSuperAdmin = authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
-        if (!isSuperAdmin) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "Solo un superadministrador puede consultar notificaciones.");
-        }
-
+        log.debug("Acceso a notificaciones autorizado para usuario {}", userId);
         return userId;
     }
 

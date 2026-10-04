@@ -37,7 +37,7 @@ public class NotificationController {
             @RequestParam(required = false) String search
     ) {
         return ApiResponseFactory.success(
-                notificationUseCase.findForCurrentSuperAdmin(type, priority, read, fromDate, toDate, search),
+                notificationUseCase.findForCurrentUser(type, priority, read, fromDate, toDate, search),
                 "Notificaciones obtenidas correctamente."
         );
     }
@@ -45,7 +45,7 @@ public class NotificationController {
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<NotificationUnreadCountDTO>> getUnreadCount() {
         return ApiResponseFactory.success(
-                notificationUseCase.countUnreadForCurrentSuperAdmin(),
+                notificationUseCase.countUnreadForCurrentUser(),
                 "Cantidad de notificaciones no leídas obtenida correctamente."
         );
     }
@@ -53,20 +53,20 @@ public class NotificationController {
     @GetMapping("/configuration")
     public ResponseEntity<ApiResponse<NotificationConfigurationDTO>> getConfiguration() {
         return ApiResponseFactory.success(
-                notificationUseCase.getConfigurationForCurrentSuperAdmin(),
+                notificationUseCase.getConfigurationForCurrentUser(),
                 "Configuración de notificaciones obtenida correctamente."
         );
     }
 
     @PutMapping("/{id}/read")
     public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
-        notificationUseCase.markAsReadForCurrentSuperAdmin(id);
+        notificationUseCase.markAsReadForCurrentUser(id);
         return ApiResponseFactory.success(null, "Notificación marcada como leída.");
     }
 
     @PutMapping("/read-all")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
-        notificationUseCase.markAllAsReadForCurrentSuperAdmin();
+        notificationUseCase.markAllAsReadForCurrentUser();
         return ApiResponseFactory.success(null, "Todas las notificaciones fueron marcadas como leídas.");
     }
 }

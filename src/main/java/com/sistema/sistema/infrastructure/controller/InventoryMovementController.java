@@ -8,13 +8,16 @@ import com.sistema.sistema.application.dto.response.inventorymovement.InventoryM
 import com.sistema.sistema.domain.usecase.InventoryMovementUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 
 
 @RestController
 @RequestMapping("/api/inventory-movement")
+@Slf4j
 public class InventoryMovementController {
 
 
@@ -28,6 +31,7 @@ public class InventoryMovementController {
     }
 
 
+    @PreAuthorize("hasAuthority('VIEW_PRODUCT_MOVEMENT')")
     @GetMapping("/product/{productId}")
     public ResponseEntity<ApiResponse<InventoryMovementPageDTO>> findAll(
             @PathVariable Long productId,
@@ -47,9 +51,13 @@ public class InventoryMovementController {
         return ApiResponseFactory.success(movement, "Movimiento de inventario encontrado correctamente.");
     }
 
+    @PreAuthorize("(#request.type == 'ENTRY' and hasAuthority('CREATE_PRODUCT_INVENTORY_ENTRY')) or "
+            + "(#request.type == 'WASTE' and hasAuthority('CREATE_PRODUCT_WASTE')) or "
+            + "(#request.type == 'ADJUSTMENT' and hasAuthority('ADJUST_PRODUCT_INVENTORY'))")
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<InventoryMovementDTO>> create(@Valid @RequestBody InventoryMovementCreateRequest request) {
         InventoryMovementDTO movement = inventoryMovementUseCase.create(request);
+        log.info("Movimiento de inventario registrado: productoId={}, tipo={}", request.getProductId(), request.getType());
 
         return ApiResponseFactory.created(movement, "Movimiento de inventario registrado correctamente.");
     }

@@ -7,12 +7,14 @@ import com.sistema.sistema.domain.usecase.CashSessionUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/cash-session")
+@Slf4j
 public class CashSessionController {
 
     private final CashSessionUseCase cashSessionUseCase;
@@ -26,6 +28,7 @@ public class CashSessionController {
     public ResponseEntity<ApiResponse<CashSession>> openSession(@RequestBody CashSession request) {
 
         CashSession data = cashSessionUseCase.openSession(request);
+        log.info("Sesión de caja abierta: cashSessionId={}, cashRegisterId={}", data.getId(), data.getCashRegisterId());
         return ApiResponseFactory.created(data, "Caja abierta correctamente");
 
     }
@@ -54,6 +57,7 @@ public class CashSessionController {
             @RequestParam(required = false) BigDecimal difference, @RequestParam(required = false) String closingComment ) {
 
         CashSession data = cashSessionUseCase.closeSession(id, closingAmount, expectedAmount, difference, closingComment);
+        log.info("Sesión de caja cerrada: cashSessionId={}", data.getId());
         return ApiResponseFactory.success(data, "Caja cerrada correctamente");
 
     }

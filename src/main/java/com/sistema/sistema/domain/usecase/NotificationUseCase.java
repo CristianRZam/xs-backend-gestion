@@ -28,9 +28,9 @@ public interface NotificationUseCase {
             String search
     );
 
-    List<NotificationDTO> findForCurrentSuperAdmin();
+    List<NotificationDTO> findForCurrentUser();
 
-    List<NotificationDTO> findForCurrentSuperAdmin(
+    List<NotificationDTO> findForCurrentUser(
             String type,
             String priority,
             Boolean read,
@@ -41,15 +41,15 @@ public interface NotificationUseCase {
 
     NotificationUnreadCountDTO countUnreadForUser(Long userId);
 
-    NotificationUnreadCountDTO countUnreadForCurrentSuperAdmin();
+    NotificationUnreadCountDTO countUnreadForCurrentUser();
 
-    NotificationConfigurationDTO getConfigurationForCurrentSuperAdmin();
+    NotificationConfigurationDTO getConfigurationForCurrentUser();
 
     void markAsRead(Long notificationId, Long userId);
 
-    void markAsReadForCurrentSuperAdmin(Long notificationId);
+    void markAsReadForCurrentUser(Long notificationId);
 
     void markAllAsRead(Long userId);
 
-    void markAllAsReadForCurrentSuperAdmin();
+    void markAllAsReadForCurrentUser();
 }

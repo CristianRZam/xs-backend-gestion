@@ -9,9 +9,10 @@ import com.sistema.sistema.infrastructure.security.XsUserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDate;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class DashboardService implements DashboardUseCase {
     private final DashboardRepository repository;
 
@@ -29,20 +30,7 @@ public class DashboardService implements DashboardUseCase {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión.");
         }
 
-        boolean hasRole = authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().startsWith("ROLE_"));
-        if (!hasRole) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "No tiene un rol activo.");
-        }
-
-        boolean isSuperAdmin = authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
-        if (isSuperAdmin) {
-            return repository.getSummary();
-        }
-
-        // Same server-local calendar as SaleDAOImpl's LocalDateTime.now().
-        // The client never supplies the owner or the reporting scope.
-        return repository.getPersonalSummary(userId, LocalDate.now());
+        log.debug("Cargando dashboard para usuario {}", userId);
+        return repository.getSummary();
     }
 }

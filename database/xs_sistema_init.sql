@@ -1149,6 +1149,8 @@ WHERE u.username = 'crodriguezz' AND r.name = 'SUPER_ADMIN';
 INSERT INTO permissions (name, description, created_by, module) VALUES
 -- Dashboard
 ('VIEW_DASHBOARD', 'Permiso para ver el dashboard', 1, 'Inicio'),
+('VIEW_REPORT', 'Permiso para consultar y descargar reportes', 1, 'Inicio'),
+('VIEW_NOTIFICATION', 'Permiso para ver y gestionar notificaciones', 1, 'Inicio'),
 
 -- Usuarios
 ('VIEW_USER', 'Permiso para ver usuarios', 1, 'Mantenedor Usuario'),
@@ -1185,7 +1187,37 @@ INSERT INTO permissions (name, description, created_by, module) VALUES
 ('CREATE_PRODUCT', 'Permiso para crear productos', 1, 'Mantenedor Producto'),
 ('EDIT_PRODUCT', 'Permiso para editar productos', 1, 'Mantenedor Producto'),
 ('DELETE_PRODUCT', 'Permiso para eliminar productos', 1, 'Mantenedor Producto'),
-('EXPORT_PRODUCT', 'Permiso para exportar productos', 1, 'Mantenedor Producto');
+('EXPORT_PRODUCT', 'Permiso para exportar productos', 1, 'Mantenedor Producto'),
+('VIEW_PRODUCT_MOVEMENT', 'Permiso para ver movimientos de producto', 1, 'Mantenedor Producto'),
+('CREATE_PRODUCT_INVENTORY_ENTRY', 'Permiso para agregar inventario de producto', 1, 'Mantenedor Producto'),
+('CREATE_PRODUCT_WASTE', 'Permiso para registrar merma de producto', 1, 'Mantenedor Producto'),
+('ADJUST_PRODUCT_INVENTORY', 'Permiso para ajustar inventario de producto', 1, 'Mantenedor Producto'),
+
+-- Caja
+('VIEW_CASH_SESSION', 'Permiso para ver la sesión de caja actual', 1, 'Operaciones Caja'),
+('OPEN_CASH_SESSION', 'Permiso para abrir una sesión de caja', 1, 'Operaciones Caja'),
+('CLOSE_CASH_SESSION', 'Permiso para cerrar una sesión de caja', 1, 'Operaciones Caja'),
+('VIEW_CASH_SESSION_HISTORY', 'Permiso para ver el historial de sesiones de caja', 1, 'Operaciones Caja'),
+('VIEW_CASH_SESSION_SALES', 'Permiso para ver las ventas de una sesión de caja', 1, 'Operaciones Caja'),
+
+-- Órdenes
+('VIEW_ORDER', 'Permiso para ver órdenes', 1, 'Operaciones Órdenes'),
+('CREATE_ORDER', 'Permiso para crear órdenes', 1, 'Operaciones Órdenes'),
+('EDIT_ORDER', 'Permiso para editar órdenes pendientes', 1, 'Operaciones Órdenes'),
+('UPDATE_ORDER_STATUS', 'Permiso para actualizar el estado de órdenes', 1, 'Operaciones Órdenes'),
+('DELETE_ORDER', 'Permiso para eliminar órdenes', 1, 'Operaciones Órdenes'),
+
+-- Ventas
+('VIEW_SALE', 'Permiso para ver ventas', 1, 'Operaciones Ventas'),
+('CREATE_SALE', 'Permiso para registrar ventas', 1, 'Operaciones Ventas'),
+('CANCEL_SALE', 'Permiso para anular ventas', 1, 'Operaciones Ventas'),
+
+-- Conteo de productos
+('VIEW_INVENTORY_COUNT', 'Permiso para ver conteos de productos', 1, 'Operaciones Conteo'),
+('CREATE_INVENTORY_COUNT', 'Permiso para iniciar conteos de productos', 1, 'Operaciones Conteo'),
+('REVIEW_INVENTORY_COUNT', 'Permiso para registrar y validar conteos de productos', 1, 'Operaciones Conteo'),
+('CLOSE_INVENTORY_COUNT', 'Permiso para finalizar conteos y aplicar ajustes', 1, 'Operaciones Conteo'),
+('VIEW_INVENTORY_COUNT_HISTORY', 'Permiso para ver el historial de conteos', 1, 'Operaciones Conteo');
 
 
 -- Asignar permisos al rol
