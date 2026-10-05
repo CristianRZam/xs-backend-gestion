@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.sistema</groupId>
     <artifactId>sistema</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>war</packaging>
     <name>xs-sistema-gestion</name>
     <description>xs-sistema-gestion</description>
@@ -147,6 +147,7 @@
     </dependencies>
 
     <build>
+        <finalName>dprimera-api</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-resources-plugin</artifactId>

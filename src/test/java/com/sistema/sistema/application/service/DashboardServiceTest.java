@@ -14,16 +14,21 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.time.LocalDate;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DashboardServiceTest {
+
     private final DashboardRepository repository = mock(DashboardRepository.class);
     private final DashboardService service = new DashboardService(repository);
 
@@ -33,42 +38,29 @@ class DashboardServiceTest {
     }
 
     @Test
-    void superAdminReceivesGlobalSummary() {
-        authenticate(1L, "ROLE_SUPER_ADMIN", true);
+    void authenticatedActiveUserReceivesTheGlobalSummary() {
+        authenticate(42L, "VIEW_DASHBOARD", true);
         DashboardDTO global = DashboardDTO.builder().build();
         when(repository.getSummary()).thenReturn(global);
 
         assertSame(global, service.getSummary());
         assertEquals("GLOBAL", global.getScope());
-        verify(repository, never()).getPersonalSummary(anyLong(), any());
+        verify(repository).getSummary();
     }
 
     @Test
-    void ordinaryAdminReceivesOnlyTheirOwnSummary() {
-        authenticate(42L, "ROLE_ADMIN", true);
-        DashboardDTO personal = DashboardDTO.builder().scope("PERSONAL").build();
-        when(repository.getPersonalSummary(eq(42L), any())).thenReturn(personal);
-
-        assertSame(personal, service.getSummary());
-        verify(repository).getPersonalSummary(42L, LocalDate.now());
-        verify(repository, never()).getSummary();
-    }
-
-    @Test
-    void requestCannotOverrideOwnerOrScope() throws Exception {
-        authenticate(42L, "ROLE_EMPLOYEE", true);
-        when(repository.getPersonalSummary(eq(42L), any()))
-                .thenReturn(DashboardDTO.builder().scope("PERSONAL").build());
+    void endpointDoesNotAcceptParametersToChangeDashboardScope() throws Exception {
+        authenticate(42L, "VIEW_DASHBOARD", true);
+        when(repository.getSummary()).thenReturn(DashboardDTO.builder().build());
         var mvc = MockMvcBuilders.standaloneSetup(new DashboardController(service)).build();
 
         mvc.perform(get("/api/dashboard")
                         .param("userId", "999")
-                        .param("scope", "GLOBAL"))
+                        .param("scope", "PERSONAL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.scope").value("PERSONAL"));
+                .andExpect(jsonPath("$.data.scope").value("GLOBAL"));
 
-        verify(repository).getPersonalSummary(eq(42L), any());
-        verify(repository, never()).getSummary();
+        verify(repository).getSummary();
     }
 
     @Test
@@ -80,22 +72,15 @@ class DashboardServiceTest {
 
     @Test
     void disabledUserIsRejectedBeforeAnyQuery() {
-        authenticate(1L, "ROLE_SUPER_ADMIN", false);
+        authenticate(1L, "VIEW_DASHBOARD", false);
+
         assertEquals(HttpStatus.UNAUTHORIZED,
                 assertThrows(BusinessException.class, service::getSummary).getStatus());
         verifyNoInteractions(repository);
     }
 
-    @Test
-    void permissionWithoutActiveRoleDoesNotGrantGlobalAccess() {
-        authenticate(1L, "VIEW_DASHBOARD", true);
-        assertEquals(HttpStatus.FORBIDDEN,
-                assertThrows(BusinessException.class, service::getSummary).getStatus());
-        verifyNoInteractions(repository);
-    }
-
-    private void authenticate(Long id, String role, boolean active) {
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+    private void authenticate(Long id, String authority, boolean active) {
+        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(authority));
         var principal = new XsUserDetails(id, "tester", "", authorities, active);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, authorities)

@@ -1242,14 +1242,7 @@ values
 -- CATEGORIA DE PRODUCTO
 (NULL, 1, 'CATEGORIA_PRODUCTO', 2, 'Bebidas calientes', 'Calientes', 1, TRUE, 1, now()),
 (NULL, 2, 'CATEGORIA_PRODUCTO', 2, 'Bebidas frías', 'Frías', 2, TRUE, 1, now()),
-(NULL, 3, 'CATEGORIA_PRODUCTO', 2, 'Café en grano y molido', 'Café', 3, TRUE, 1, now()),
-(NULL, 4, 'CATEGORIA_PRODUCTO', 2, 'Tés e infusiones', 'Tés', 4, TRUE, 1, now()),
-(NULL, 5, 'CATEGORIA_PRODUCTO', 2, 'Pasteles, tortas y postres', 'Pastelería', 5, TRUE, 1, now()),
-(NULL, 6, 'CATEGORIA_PRODUCTO', 2, 'Panes y bollería', 'Panadería', 6, TRUE, 1, now()),
-(NULL, 7, 'CATEGORIA_PRODUCTO', 2, 'Sándwiches y emparedados', 'Sándwiches', 7, TRUE, 1, now()),
-(NULL, 8, 'CATEGORIA_PRODUCTO', 2, 'Galletas, chips y bocadillos', 'Snacks', 8, TRUE, 1, now()),
-(NULL, 9, 'CATEGORIA_PRODUCTO', 2, 'Jugos naturales', 'Jugos', 9, TRUE, 1, now()),
-(NULL, 10, 'CATEGORIA_PRODUCTO', 2, 'Azúcar, jarabes y complementos', 'Complementos', 10, TRUE, 1, now()),
+(NULL, 3, 'CATEGORIA_PRODUCTO', 2, 'Pasteles, tortas y postres', 'Pastelería', 3, TRUE, 1, now()),
 -- MÉTODO DE VALUACIÓN DE INVENTARIO
 (NULL, 1, 'METODO_VALUACION', 2, 'FIFO (Primero en entrar, primero en salir)', 'FIFO', 1, TRUE, 1, now()),
 (NULL, 2, 'METODO_VALUACION', 2, 'LIFO (Último en entrar, primero en salir)', 'LIFO', 2, TRUE, 1, now()),

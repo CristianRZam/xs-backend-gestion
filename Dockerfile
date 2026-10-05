@@ -1,14 +1,14 @@
-# Usa un JDK base (Java 17)
+# Java 17
 FROM eclipse-temurin:17-jdk-jammy
 
-# Carpeta de trabajo dentro del contenedor
+# Directorio de trabajo del backend
 WORKDIR /app
 
-# Copia tu WAR generado al contenedor
-COPY target/sistema-0.0.1-SNAPSHOT.war app.war
+# WAR de D'Primera
+COPY target/dprimera-api.war app.war
 
-# Expone el puerto que tu app usará
+# Puerto interno de Spring Boot
 EXPOSE 8080
 
-# Comando para correr tu WAR
+# Ejecutar aplicación
 CMD ["java", "-jar", "app.war"]
