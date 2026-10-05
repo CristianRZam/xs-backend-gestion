@@ -291,7 +291,7 @@ public class NotificationService implements NotificationUseCase {
     }
 
     private boolean isDigitalPayment(String paymentMethod) {
-        return Set.of("YAPE", "CARD", "TRANSFER").contains(paymentMethod);
+        return Set.of("YAPE", "PLIN", "CARD", "TRANSFER").contains(paymentMethod);
     }
 
     private String normalizePaymentMethod(String paymentMethod) {
@@ -301,6 +301,7 @@ public class NotificationService implements NotificationUseCase {
     private String paymentLabel(String paymentMethod) {
         return switch (paymentMethod) {
             case "YAPE" -> "Yape";
+            case "PLIN" -> "Plin";
             case "CARD" -> "Tarjeta";
             case "TRANSFER" -> "Transferencia";
             default -> paymentMethod;

@@ -76,6 +76,27 @@ class NotificationServiceTest {
     }
 
     @Test
+    void plinPaymentCreatesDigitalNotification() {
+        UserEntity superAdmin = UserEntity.builder().id(7L).username("owner").build();
+        when(users.findActiveSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(users.findAllById(any())).thenReturn(List.of(superAdmin));
+        when(notifications.findByEventKey("PAYMENT_RECEIVED:SALE:30:PAYMENT:0"))
+                .thenReturn(Optional.empty());
+        when(notifications.save(any())).thenAnswer(invocation -> {
+            NotificationEntity notification = invocation.getArgument(0);
+            notification.setId(90L);
+            return notification;
+        });
+        when(userNotifications.existsByNotificationIdAndUserId(90L, 7L)).thenReturn(false);
+
+        service.createDigitalPaymentNotifications(sale(payment("PLIN", "12.50")));
+
+        ArgumentCaptor<NotificationEntity> notificationCaptor = ArgumentCaptor.forClass(NotificationEntity.class);
+        verify(notifications).save(notificationCaptor.capture());
+        assertTrue(notificationCaptor.getValue().getMessage().contains("Plin: S/ 12.50"));
+    }
+
+    @Test
     void existingPaymentEventDoesNotCreateDuplicateNotificationOrRecipient() {
         UserEntity superAdmin = UserEntity.builder().id(7L).username("owner").build();
         NotificationEntity existing = NotificationEntity.builder()
