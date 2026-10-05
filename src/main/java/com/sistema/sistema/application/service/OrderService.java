@@ -18,8 +18,10 @@ import java.util.Map;
 import java.util.Set;
 import java.time.LocalDate;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class OrderService implements OrderUseCase {
 
     private final OrderRepository repository;
@@ -140,14 +142,17 @@ public class OrderService implements OrderUseCase {
          * Una orden solamente puede modificarse
          * mientras esté pendiente.
          */
-        if (!"PENDING".equals(current.getStatus())) {
+        Set<String> editableStatuses = Set.of("PENDING", "PREPARING", "READY");
+        if (!editableStatuses.contains(current.getStatus())) {
+            log.warn("Rejected update for order {} in terminal status {}", id, current.getStatus());
 
             throw new BusinessException(
                     HttpStatus.BAD_REQUEST,
-                    "La orden solamente puede modificarse mientras se encuentre en estado PENDING."
+                    "La orden solamente puede modificarse mientras se encuentre pendiente, en preparaciÃ³n o lista."
             );
         }
 
+        log.info("Updating active order {} in status {}", id, current.getStatus());
         adjustReservedStock(current.getItems(), order.getItems());
 
         // La caja de una orden ya creada no puede ser cambiada por el cliente.
