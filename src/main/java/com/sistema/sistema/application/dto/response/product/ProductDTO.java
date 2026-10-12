@@ -25,6 +25,7 @@ public class ProductDTO {
     private BigDecimal baseCost;
     private Long totalStock;
     private Long reservedStock;
+    private String mainImageUrl;
     private Boolean active;
     private Boolean deleted;
 }

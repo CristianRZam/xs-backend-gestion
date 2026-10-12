@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 public class ProductImageDAOImpl implements ProductImageRepository {
@@ -76,6 +78,20 @@ public class ProductImageDAOImpl implements ProductImageRepository {
                 .stream()
                 .map(mapper::toDto)
                 .toList();
+    }
+
+    @Override
+    public Map<Long, String> findMainImageUrlsByProductIds(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return jpa.findMainByProductIdIn(productIds).stream()
+                .collect(Collectors.toMap(
+                        ProductImageEntity::getProductId,
+                        image -> mapper.toDto(image).getImageUrl(),
+                        (first, ignored) -> first
+                ));
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.sistema.sistema.application.dto.response.productimage.ProductImageDTO
 import com.sistema.sistema.application.dto.response.productimage.StoredFileDTO;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ProductImageRepository {
 
@@ -12,6 +13,8 @@ public interface ProductImageRepository {
     List<ProductImageDTO> findByProductIdAndActiveTrue(Long id);
 
     List<ProductImageDTO> findByProductId(Long id);
+
+    Map<Long, String> findMainImageUrlsByProductIds(List<Long> productIds);
 
     void deleteById(Long id);
 

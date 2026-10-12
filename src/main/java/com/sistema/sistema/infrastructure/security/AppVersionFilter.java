@@ -26,7 +26,11 @@ public class AppVersionFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !path.startsWith("/api/") || path.equals("/api/app-version/check");
+        String platform = request.getHeader("X-App-Platform");
+        return !path.startsWith("/api/")
+                || path.equals("/api/app-version/check")
+                || platform == null
+                || platform.isBlank();
     }
 
     @Override

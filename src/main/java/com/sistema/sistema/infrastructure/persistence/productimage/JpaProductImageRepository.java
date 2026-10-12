@@ -14,6 +14,14 @@ public interface JpaProductImageRepository extends JpaRepository<ProductImageEnt
 
     List<ProductImageEntity> findByProductId(Long productId);
 
+    @Query("""
+    SELECT p FROM ProductImageEntity p
+    WHERE p.productId IN :productIds
+      AND p.active = true
+      AND p.isMain = true
+    """)
+    List<ProductImageEntity> findMainByProductIdIn(@Param("productIds") List<Long> productIds);
+
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

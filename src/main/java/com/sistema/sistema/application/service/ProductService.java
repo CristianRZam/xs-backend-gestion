@@ -17,13 +17,16 @@ import com.sistema.sistema.domain.repository.ProductRepository;
 import com.sistema.sistema.domain.usecase.FileStorageUseCase;
 import com.sistema.sistema.domain.usecase.ProductUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Slf4j
 public class ProductService implements ProductUseCase {
 
     private final ProductRepository repository;
@@ -41,12 +44,13 @@ public class ProductService implements ProductUseCase {
 
     @Override
     public List<ProductDTO> findAllFiltered(ProductViewRequest request) {
-        return  repository.findAllFiltered(request);
+        return withMainImageUrls(repository.findAllFiltered(request));
     }
 
     @Override
     public ProductViewResponse init(ProductViewRequest request) {
         ProductViewResponse response = repository.findPaginatedWithStats(request);
+        response.setProducts(withMainImageUrls(response.getProducts()));
         List<ParameterDto> categories = parameterRepository.getListParameterByCode("CATEGORIA_PRODUCTO");
         List<ParameterDto> unitMeasures = parameterRepository.getListParameterByCode("UNIDAD_MEDIDA_PRODUCTO");
         List<ParameterDto> valuationMethods = parameterRepository.getListParameterByCode("METODO_VALUACION");
@@ -54,6 +58,19 @@ public class ProductService implements ProductUseCase {
         response.setUnitMeasures(unitMeasures);
         response.setValuationMethods(valuationMethods);
         return response;
+    }
+
+    private List<ProductDTO> withMainImageUrls(List<ProductDTO> products) {
+        if (products == null || products.isEmpty()) {
+            return products;
+        }
+
+        List<Long> productIds = products.stream()
+                .map(ProductDTO::getId)
+                .toList();
+        var urlsByProductId = productImageRepository.findMainImageUrlsByProductIds(productIds);
+        products.forEach(product -> product.setMainImageUrl(urlsByProductId.get(product.getId())));
+        return products;
     }
 
     @Override
@@ -77,6 +94,7 @@ public class ProductService implements ProductUseCase {
     }
 
     @Override
+    @Transactional
     public ProductDTO create(
             ProductCreateRequest request,
             MultipartFile[] images,
@@ -114,7 +132,10 @@ public class ProductService implements ProductUseCase {
                         mainImageKey
                 );
 
+            } catch (BusinessException e) {
+                throw e;
             } catch (Exception e) {
+                log.error("No se pudieron almacenar las imágenes del producto {}", product.getId(), e);
                 throw new BusinessException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "Error al subir imágenes del producto"
@@ -128,6 +149,7 @@ public class ProductService implements ProductUseCase {
 
 
     @Override
+    @Transactional
     public ProductDTO update(
             ProductUpdateRequest request,
             MultipartFile[] images,
@@ -177,7 +199,10 @@ public class ProductService implements ProductUseCase {
                         product.getId(),
                         storedImages
                 );
+            } catch (BusinessException e) {
+                throw e;
             } catch (Exception e) {
+                log.error("No se pudieron almacenar las nuevas imágenes del producto {}", product.getId(), e);
                 throw new BusinessException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "Error al subir nuevas imágenes del producto"
