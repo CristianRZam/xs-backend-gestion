@@ -69,7 +69,11 @@ public class OrderMapper {
                 .quantity(entity.getQuantity())
                 .unitPrice(entity.getUnitPrice())
                 .notes(entity.getNotes())
+                .fulfillmentType(entity.getFulfillmentType())
+                .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())
+                .modifiedBy(entity.getModifiedBy())
+                .modifiedAt(entity.getModifiedAt())
                 .build();
     }
 
@@ -133,8 +137,20 @@ public class OrderMapper {
                 .quantity(domain.getQuantity())
                 .unitPrice(domain.getUnitPrice())
                 .notes(domain.getNotes())
+                .fulfillmentType(defaultFulfillmentType(domain.getFulfillmentType(), order.getOrderType()))
+                .status(defaultItemStatus(domain.getStatus()))
                 .createdAt(domain.getCreatedAt())
+                .modifiedBy(domain.getModifiedBy())
+                .modifiedAt(domain.getModifiedAt())
                 .build();
+    }
+
+    private String defaultFulfillmentType(String fulfillmentType, String orderType) {
+        return fulfillmentType != null ? fulfillmentType : "TAKEAWAY".equals(orderType) ? "TAKEAWAY" : "DINE_IN";
+    }
+
+    private String defaultItemStatus(String status) {
+        return status == null ? "PENDING" : status;
     }
 
     // ==========================================================

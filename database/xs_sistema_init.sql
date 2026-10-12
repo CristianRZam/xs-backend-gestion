@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS inventory_movements CASCADE;
 DROP TABLE IF EXISTS cash_registers CASCADE;
 DROP TABLE IF EXISTS cash_sessions CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS order_item_status_history CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS sales CASCADE;
 DROP TABLE IF EXISTS sale_items CASCADE;
@@ -45,6 +46,7 @@ DROP SEQUENCE IF EXISTS cash_registers_seq CASCADE;
 DROP SEQUENCE IF EXISTS cash_sessions_seq CASCADE;
 DROP SEQUENCE IF EXISTS orders_seq CASCADE;
 DROP SEQUENCE IF EXISTS order_items_seq CASCADE;
+DROP SEQUENCE IF EXISTS order_item_status_history_seq CASCADE;
 DROP SEQUENCE IF EXISTS sales_seq CASCADE;
 DROP SEQUENCE IF EXISTS sale_items_seq CASCADE;
 DROP SEQUENCE IF EXISTS payments_seq CASCADE;
@@ -71,6 +73,7 @@ CREATE SEQUENCE cash_registers_seq START 1 INCREMENT 1;
 CREATE SEQUENCE cash_sessions_seq START 1 INCREMENT 1;
 CREATE SEQUENCE orders_seq START 1 INCREMENT 1;
 CREATE SEQUENCE order_items_seq START 1 INCREMENT 1;
+CREATE SEQUENCE order_item_status_history_seq START 1 INCREMENT 1;
 CREATE SEQUENCE sales_seq START 1 INCREMENT 1;
 CREATE SEQUENCE sale_items_seq START 1 INCREMENT 1;
 CREATE SEQUENCE payments_seq START 1 INCREMENT 1;
@@ -589,7 +592,11 @@ CREATE TABLE order_items (
     quantity NUMERIC(12,2) NOT NULL,
     unit_price NUMERIC(12,2) NOT NULL,
     notes VARCHAR(255),
+    fulfillment_type VARCHAR(20) NOT NULL DEFAULT 'DINE_IN',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT NOW(),
+    modified_by BIGINT,
+    modified_at TIMESTAMP,
 
     CONSTRAINT fk_order_items_order
         FOREIGN KEY (order_id)
@@ -598,7 +605,13 @@ CREATE TABLE order_items (
 
     CONSTRAINT fk_order_items_product
         FOREIGN KEY (product_id)
-        REFERENCES products(id)
+        REFERENCES products(id),
+
+    CONSTRAINT chk_order_items_fulfillment_type
+        CHECK (fulfillment_type IN ('DINE_IN', 'TAKEAWAY', 'DELIVERY')),
+
+    CONSTRAINT chk_order_items_status
+        CHECK (status IN ('PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'))
 );
 
 -- ==========================================
@@ -616,6 +629,42 @@ COMMENT ON COLUMN order_items.created_at is 'Fecha y hora en que se agregó el p
 
 
 -- ==========================================
+-- Historial de estados de items de orden
+-- ==========================================
+CREATE TABLE order_item_status_history (
+    id BIGINT PRIMARY KEY DEFAULT nextval('order_item_status_history_seq'),
+    order_item_id BIGINT NOT NULL,
+    previous_status VARCHAR(20),
+    new_status VARCHAR(20) NOT NULL,
+    comment VARCHAR(500),
+    changed_by BIGINT,
+    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_order_item_status_history_item
+        FOREIGN KEY (order_item_id)
+        REFERENCES order_items(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_order_item_status_history_user
+        FOREIGN KEY (changed_by)
+        REFERENCES users(id),
+
+    CONSTRAINT chk_order_item_status_history_new_status
+        CHECK (new_status IN ('PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED')),
+
+    CONSTRAINT chk_order_item_status_history_previous_status
+        CHECK (previous_status IS NULL OR previous_status IN ('PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'))
+);
+
+COMMENT ON TABLE order_item_status_history is 'Audit trail for order item status changes.';
+COMMENT ON COLUMN order_item_status_history.previous_status is 'Previous item status; NULL for the initial status record.';
+COMMENT ON COLUMN order_item_status_history.new_status is 'New item status.';
+COMMENT ON COLUMN order_item_status_history.comment is 'Optional reason or observation for the status change.';
+COMMENT ON COLUMN order_item_status_history.changed_by is 'User who changed the item status.';
+COMMENT ON COLUMN order_item_status_history.changed_at is 'Timestamp of the item status change.';
+
+
+-- ==========================================
 -- Tabla de ventas
 -- ==========================================
 CREATE TABLE sales (
@@ -627,6 +676,7 @@ CREATE TABLE sales (
     discount NUMERIC(12,2) NOT NULL DEFAULT 0,
     total NUMERIC(12,2) NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+    notes VARCHAR(500),
     created_by BIGINT,
     created_at TIMESTAMP DEFAULT NOW(),
     modified_by BIGINT,
@@ -1206,6 +1256,21 @@ INSERT INTO permissions (name, description, created_by, module) VALUES
 ('EDIT_ORDER', 'Permiso para editar órdenes pendientes', 1, 'Operaciones Órdenes'),
 ('UPDATE_ORDER_STATUS', 'Permiso para actualizar el estado de órdenes', 1, 'Operaciones Órdenes'),
 ('DELETE_ORDER', 'Permiso para eliminar órdenes', 1, 'Operaciones Órdenes'),
+('ADD_ORDER_ITEM', 'Permiso para agregar productos a una orden activa', 1, 'Operaciones Órdenes'),
+('EDIT_PENDING_ORDER_ITEM', 'Permiso para editar o dividir productos pendientes de una orden', 1, 'Operaciones Órdenes'),
+('CANCEL_ORDER_ITEM', 'Permiso para cancelar productos pendientes de una orden', 1, 'Operaciones Órdenes'),
+('CORRECT_ORDER_ITEM_STATUS', 'Permite corregir el estado de un producto antes del cobro: volverlo a pendiente o servirlo directamente cuando corresponda. Cada corrección queda registrada en el historial.', 1, 'Operaciones Órdenes'),
+('SERVE_ORDER_ITEM', 'Permiso para marcar productos de una orden como servidos', 1, 'Operaciones Órdenes'),
+('VIEW_ORDER_ITEM_HISTORY', 'Permiso para ver el historial de estados de productos de una orden', 1, 'Operaciones Órdenes'),
+('REPORT_ORDER_INCIDENT', 'Permiso para reportar incidencias de productos de una orden', 1, 'Operaciones Órdenes'),
+
+-- Cocina
+('VIEW_KITCHEN_QUEUE', 'Permiso para ver la cola de preparación de cocina', 1, 'Operaciones Cocina'),
+('PREPARE_ORDER_ITEM', 'Permiso para marcar productos de una orden en preparación', 1, 'Operaciones Cocina'),
+('MARK_ORDER_ITEM_READY', 'Permiso para marcar productos de una orden como listos', 1, 'Operaciones Cocina'),
+
+-- Incidencias de órdenes
+('APPROVE_ORDER_COMPENSATION', 'Permiso para aprobar compensaciones por incidencias de órdenes', 1, 'Operaciones Incidencias'),
 
 -- Ventas
 ('VIEW_SALE', 'Permiso para ver ventas', 1, 'Operaciones Ventas'),
@@ -1286,3 +1351,40 @@ SELECT setval('sale_cancellations_seq', COALESCE((SELECT MAX(id) FROM sale_cance
 
 
 select * from products;*/
+
+-- Auditoría de incidencias previas al cobro de una orden.
+DROP TABLE IF EXISTS order_item_incidents CASCADE;
+DROP SEQUENCE IF EXISTS order_item_incidents_seq;
+CREATE SEQUENCE order_item_incidents_seq START 1 INCREMENT 1;
+CREATE TABLE order_item_incidents (
+    id BIGINT PRIMARY KEY DEFAULT nextval('order_item_incidents_seq'),
+    order_id BIGINT NOT NULL REFERENCES orders(id),
+    order_item_id BIGINT NOT NULL REFERENCES order_items(id),
+    product_id BIGINT NOT NULL REFERENCES products(id),
+    resolution VARCHAR(30) NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    reported_by BIGINT NOT NULL REFERENCES users(id),
+    reported_at TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'APPROVED',
+    approved_by BIGINT NOT NULL REFERENCES users(id),
+    approved_at TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_order_item_incidents_order_id ON order_item_incidents(order_id, reported_at DESC);
+CREATE TABLE IF NOT EXISTS app_version_policies (
+    id BIGSERIAL PRIMARY KEY,
+    platform VARCHAR(20) NOT NULL UNIQUE,
+    latest_build INTEGER NOT NULL,
+    latest_version VARCHAR(40) NOT NULL,
+    allowed_builds VARCHAR(500) NOT NULL,
+    minimum_build INTEGER NOT NULL,
+    download_url VARCHAR(500),
+    update_message VARCHAR(500)
+);
+
+INSERT INTO app_version_policies
+    (platform, latest_build, latest_version, allowed_builds, minimum_build, download_url, update_message)
+VALUES
+    ('ANDROID', 1, '1.0.0', '1', 1, NULL, NULL)
+ON CONFLICT (platform) DO NOTHING;
+

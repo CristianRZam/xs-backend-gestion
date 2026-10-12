@@ -17,9 +17,14 @@ public class OrderItem {
     private Long id;
     private Long orderId;
     private Long productId;
+    private String productName;
     private BigDecimal quantity;
     private BigDecimal unitPrice;
     private String notes;
+    private String fulfillmentType;
+    private String status;
     private LocalDateTime createdAt;
+    private Long modifiedBy;
+    private LocalDateTime modifiedAt;
 
 }

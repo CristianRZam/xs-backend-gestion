@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -23,6 +24,7 @@ public class Order {
     private String status;
     private String notes;
     private List<OrderItem> items = new ArrayList<>();
+    private BigDecimal incidentDiscount = BigDecimal.ZERO;
     private Long createdBy;
     private LocalDateTime createdAt;
     private Long modifiedBy;

@@ -41,6 +41,7 @@ public class SaleDAOImpl implements SaleRepository {
                 .saleNumber(formatSaleNumber(now)).orderId(request.getOrderId())
                 .cashRegisterId(cashRegisterId).subtotal(subtotal)
                 .discount(zero(request.getDiscount())).total(total).status("COMPLETED")
+                .notes(normalizeNotes(request.getNotes()))
                 .createdBy(userId).createdAt(now).build();
         for (SaleCreateRequest.SaleItemRequest item : request.getItems()) {
             BigDecimal itemSubtotal = item.getUnitPrice().multiply(item.getQuantity())
@@ -134,7 +135,7 @@ public class SaleDAOImpl implements SaleRepository {
         return SaleDTO.builder().id(sale.getId()).saleNumber(sale.getSaleNumber())
                 .orderId(sale.getOrderId()).cashRegisterId(sale.getCashRegisterId())
                 .subtotal(sale.getSubtotal()).discount(sale.getDiscount()).total(sale.getTotal())
-                .status(sale.getStatus()).createdBy(sale.getCreatedBy())
+                .status(sale.getStatus()).notes(sale.getNotes()).createdBy(sale.getCreatedBy())
                 .createdByName(createdByName).createdAt(sale.getCreatedAt())
                 .cancellationReason(cancellation == null ? null : cancellation.getReason())
                 .cancelledBy(cancellation == null ? null : cancellation.getCancelledBy())
@@ -151,6 +152,14 @@ public class SaleDAOImpl implements SaleRepository {
                 .build();
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
+
+    private String normalizeNotes(String notes) {
+        if (notes == null) {
+            return null;
+        }
+        String normalized = notes.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
 
     private LocalDateTime nextSaleTime(LocalDateTime now) {
         LocalDateTime candidateTime = now;

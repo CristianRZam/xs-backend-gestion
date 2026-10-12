@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.persistence.order;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
@@ -24,6 +25,15 @@ public interface JpaOrderRepository extends JpaRepository<OrderEntity, Long>, Jp
     Optional<OrderEntity> findByIdAndDeletedAtIsNull(Long id);
 
     List<OrderEntity> findByDeletedAtIsNullOrderByCreatedAtDescIdDesc();
+
+    @Query("""
+            SELECT DISTINCT o FROM OrderEntity o JOIN o.items item
+            WHERE o.deletedAt IS NULL
+              AND o.status NOT IN ('COMPLETED', 'CANCELLED')
+              AND item.status IN ('PENDING', 'PREPARING', 'READY')
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    Page<OrderEntity> findKitchenQueue(Pageable pageable);
 
     boolean existsByOrderNumberAndDeletedAtIsNull(String orderNumber);
 

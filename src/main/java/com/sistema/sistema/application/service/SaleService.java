@@ -12,6 +12,8 @@ import com.sistema.sistema.domain.repository.IventoryMovementRepository;
 import com.sistema.sistema.domain.repository.OrderRepository;
 import com.sistema.sistema.domain.repository.ProductRepository;
 import com.sistema.sistema.domain.repository.SaleRepository;
+import com.sistema.sistema.domain.repository.OrderItemIncidentRepository;
+import com.sistema.sistema.domain.model.OrderItemIncident;
 import com.sistema.sistema.domain.usecase.CashSessionUseCase;
 import com.sistema.sistema.domain.usecase.SaleUseCase;
 import com.sistema.sistema.domain.usecase.NotificationUseCase;
@@ -29,8 +31,10 @@ import java.time.LocalDateTime;
 import org.springframework.data.domain.PageRequest;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class SaleService implements SaleUseCase {
     private final SaleRepository saleRepository;
     private final OrderRepository orderRepository;
@@ -38,17 +42,20 @@ public class SaleService implements SaleUseCase {
     private final CashSessionUseCase cashSessionUseCase;
     private final IventoryMovementRepository inventoryRepository;
     private final NotificationUseCase notificationUseCase;
+    private final OrderItemIncidentRepository incidentRepository;
 
     public SaleService(SaleRepository saleRepository, OrderRepository orderRepository,
                        ProductRepository productRepository, CashSessionUseCase cashSessionUseCase,
                        IventoryMovementRepository inventoryRepository,
-                       NotificationUseCase notificationUseCase) {
+                       NotificationUseCase notificationUseCase,
+                       OrderItemIncidentRepository incidentRepository) {
         this.saleRepository = saleRepository;
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.cashSessionUseCase = cashSessionUseCase;
         this.inventoryRepository = inventoryRepository;
         this.notificationUseCase = notificationUseCase;
+        this.incidentRepository = incidentRepository;
     }
 
     @Override @Transactional
@@ -57,8 +64,6 @@ public class SaleService implements SaleUseCase {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Debe abrir una sesión de caja antes de registrar una venta.");
         }
         CashSession session = cashSessionUseCase.getCurrentSession();
-        validatePayments(request.getPayments(), calculateTotal(request));
-
         Order order = null;
         if (request.getOrderId() != null) {
             order = orderRepository.getById(request.getOrderId());
@@ -68,8 +73,20 @@ public class SaleService implements SaleUseCase {
             if ("CANCELLED".equals(order.getStatus()) || "COMPLETED".equals(order.getStatus())) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden no puede convertirse en venta con su estado actual.");
             }
+            validateOrderIsReadyToCharge(order);
             validateMatchesOrder(order, request.getItems());
+            if (request.getItems().stream().anyMatch(item -> zero(item.getDiscount()).signum() != 0)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "Los descuentos por producto no están permitidos para una orden.");
+            }
+            Order orderForDiscount = order;
+            BigDecimal approvedDiscount = incidentRepository.findByOrderId(order.getId()).stream()
+                    .filter(incident -> "DISCOUNT".equals(incident.getResolution())
+                            && isApprovedIncident(incident.getStatus())
+                            && isChargeableOrderItem(orderForDiscount, incident.getOrderItemId()))
+                    .map(OrderItemIncident::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            request.setDiscount(zero(request.getDiscount()).add(approvedDiscount));
         }
+        validatePayments(request.getPayments(), calculateTotal(request));
 
         BigDecimal subtotal = request.getItems().stream()
                 .map(i -> i.getUnitPrice().multiply(i.getQuantity()))
@@ -95,7 +112,10 @@ public class SaleService implements SaleUseCase {
             movement.setReferenceType("SALE"); movement.setReferenceId(sale.getId());
             inventoryRepository.create(movement);
         }
-        if (order != null) orderRepository.updateStatus(order.getId(), "COMPLETED");
+        if (order != null) {
+            log.info("Completing order {} after sale {}", order.getId(), sale.getId());
+            orderRepository.updateStatus(order.getId(), "COMPLETED");
+        }
         notificationUseCase.createDigitalPaymentNotifications(sale);
         return sale;
     }
@@ -203,8 +223,47 @@ public class SaleService implements SaleUseCase {
     private void validateMatchesOrder(Order order, List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> requested = quantitiesByProduct(items);
         Map<Long, Long> ordered = new HashMap<>();
-        for (OrderItem item : order.getItems()) ordered.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
+        for (OrderItem item : activeItems(order)) ordered.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
         if (!requested.equals(ordered)) throw new BusinessException(HttpStatus.BAD_REQUEST, "Los productos y cantidades de la venta deben coincidir con la orden.");
+
+        Map<Long, BigDecimal> requestedAmounts = new HashMap<>();
+        for (SaleCreateRequest.SaleItemRequest item : items) {
+            requestedAmounts.merge(item.getProductId(), item.getUnitPrice().multiply(item.getQuantity()), BigDecimal::add);
+        }
+        Map<Long, BigDecimal> orderedAmounts = new HashMap<>();
+        for (OrderItem item : activeItems(order)) {
+            orderedAmounts.merge(item.getProductId(), item.getUnitPrice().multiply(item.getQuantity()), BigDecimal::add);
+        }
+        boolean pricesMatch = requestedAmounts.size() == orderedAmounts.size()
+                && requestedAmounts.entrySet().stream().allMatch(entry -> {
+                    BigDecimal orderedAmount = orderedAmounts.get(entry.getKey());
+                    return orderedAmount != null && orderedAmount.compareTo(entry.getValue()) == 0;
+                });
+        if (!pricesMatch) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "Los precios de la venta deben coincidir con los de la orden.");
+        }
+    }
+
+    private void validateOrderIsReadyToCharge(Order order) {
+        List<OrderItem> activeItems = activeItems(order);
+        if (activeItems.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden no tiene productos activos para cobrar.");
+        }
+        boolean hasPendingItems = activeItems.stream().anyMatch(item -> !"SERVED".equals(item.getStatus()));
+        if (hasPendingItems) {
+            log.warn("Rejected charge for order {} because it has unserved items", order.getId());
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "No se puede cobrar la orden hasta que todos sus productos activos estén servidos."
+            );
+        }
+    }
+
+    private List<OrderItem> activeItems(Order order) {
+        return order.getItems().stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .toList();
     }
     private Map<Long, Long> quantitiesByProduct(List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> result = new HashMap<>();
@@ -219,6 +278,13 @@ public class SaleService implements SaleUseCase {
     private long exactQuantity(BigDecimal quantity) {
         try { return quantity.longValueExact(); }
         catch (ArithmeticException exception) { throw new BusinessException(HttpStatus.BAD_REQUEST, "La cantidad debe ser un número entero."); }
+    }
+    private boolean isApprovedIncident(String status) {
+        return "APPROVED".equalsIgnoreCase(status) || "APROVED".equalsIgnoreCase(status);
+    }
+    private boolean isChargeableOrderItem(Order order, Long itemId) {
+        return order.getItems().stream()
+                .anyMatch(item -> itemId.equals(item.getId()) && !"CANCELLED".equals(item.getStatus()));
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
     private String normalizePaymentMethod(String paymentMethod) {

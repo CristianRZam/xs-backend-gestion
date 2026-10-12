@@ -22,4 +22,11 @@ public class SecurityUtil {
         }
         return null;
     }
+
+    public static boolean hasAuthority(String authority) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null
+                && authentication.getAuthorities().stream()
+                .anyMatch(grantedAuthority -> authority.equals(grantedAuthority.getAuthority()));
+    }
 }

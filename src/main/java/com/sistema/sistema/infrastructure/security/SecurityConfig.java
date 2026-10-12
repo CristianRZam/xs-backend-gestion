@@ -24,13 +24,16 @@ public class SecurityConfig {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final AppVersionFilter appVersionFilter;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService,
+                          AppVersionFilter appVersionFilter) {
         this.tokenProvider = tokenProvider;
         this.userDetailsService = userDetailsService;
+        this.appVersionFilter = appVersionFilter;
     }
 
     @Bean
@@ -51,6 +54,7 @@ public class SecurityConfig {
                                 "/swagger-ui/index.html"
                         ).permitAll()
                         .requestMatchers("/api/login").permitAll()
+                        .requestMatchers("/api/app-version/check").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("CANCEL_SALE")
@@ -100,7 +104,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/inventory-counts/*").hasAuthority("VIEW_INVENTORY_COUNT")
                         // ORDERS
                         .requestMatchers(HttpMethod.POST, "/api/orders").hasAuthority("CREATE_ORDER")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/kitchen-queue").hasAuthority("VIEW_KITCHEN_QUEUE")
                         .requestMatchers(HttpMethod.GET, "/api/orders").hasAuthority("VIEW_ORDER")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/items").hasAuthority("ADD_ORDER_ITEM")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/items/*/split").hasAuthority("EDIT_PENDING_ORDER_ITEM")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*/items/*/status-history").hasAuthority("VIEW_ORDER_ITEM_HISTORY")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*/incidents").hasAuthority("VIEW_ORDER_ITEM_HISTORY")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/items/*/status").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/items/*").hasAuthority("EDIT_PENDING_ORDER_ITEM")
+                        .requestMatchers(HttpMethod.DELETE, "/api/orders/*/items/*").hasAuthority("CANCEL_ORDER_ITEM")
                         .requestMatchers(HttpMethod.GET, "/api/orders/*").hasAuthority("VIEW_ORDER")
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAuthority("UPDATE_ORDER_STATUS")
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*").hasAuthority("EDIT_ORDER")
@@ -134,6 +146,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 );
 
+        http.addFilterBefore(appVersionFilter,
+                org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtAuthenticationFilter(),
                 org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 

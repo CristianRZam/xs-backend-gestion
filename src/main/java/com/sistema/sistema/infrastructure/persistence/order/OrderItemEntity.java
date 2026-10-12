@@ -49,7 +49,21 @@ public class OrderItemEntity {
     @Column(name = "notes", length = 255)
     private String notes;
 
+    @Builder.Default
+    @Column(name = "fulfillment_type", nullable = false, length = 20)
+    private String fulfillmentType = "DINE_IN";
+
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "PENDING";
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "modified_by")
+    private Long modifiedBy;
+
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
 
 }

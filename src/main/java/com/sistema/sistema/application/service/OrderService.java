@@ -2,11 +2,19 @@ package com.sistema.sistema.application.service;
 
 import com.sistema.sistema.domain.model.Order;
 import com.sistema.sistema.domain.model.OrderItem;
+import com.sistema.sistema.domain.model.OrderItemStatusHistory;
 import com.sistema.sistema.domain.repository.OrderRepository;
 import com.sistema.sistema.domain.repository.ProductRepository;
+import com.sistema.sistema.domain.repository.SaleRepository;
+import com.sistema.sistema.domain.repository.OrderItemIncidentRepository;
+import com.sistema.sistema.domain.model.OrderItemIncident;
 import com.sistema.sistema.domain.usecase.CashSessionUseCase;
+import com.sistema.sistema.domain.usecase.InventoryMovementUseCase;
 import com.sistema.sistema.domain.usecase.OrderUseCase;
+import com.sistema.sistema.application.dto.request.inventorymovement.InventoryMovementCreateRequest;
+import com.sistema.sistema.application.dto.request.order.OrderItemIncidentRequest;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
+import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +35,24 @@ public class OrderService implements OrderUseCase {
     private final OrderRepository repository;
     private final CashSessionUseCase cashSessionUseCase;
     private final ProductRepository productRepository;
+    private final SaleRepository saleRepository;
+    private final InventoryMovementUseCase inventoryMovementUseCase;
+    private final OrderItemIncidentRepository incidentRepository;
 
     public OrderService(
             OrderRepository repository,
             CashSessionUseCase cashSessionUseCase,
-            ProductRepository productRepository
+            ProductRepository productRepository,
+            SaleRepository saleRepository,
+            InventoryMovementUseCase inventoryMovementUseCase,
+            OrderItemIncidentRepository incidentRepository
     ) {
         this.repository = repository;
         this.cashSessionUseCase = cashSessionUseCase;
         this.productRepository = productRepository;
+        this.saleRepository = saleRepository;
+        this.inventoryMovementUseCase = inventoryMovementUseCase;
+        this.incidentRepository = incidentRepository;
     }
 
     // ==========================================================
@@ -84,7 +101,7 @@ public class OrderService implements OrderUseCase {
 
         order.setStatus("PENDING");
 
-        return repository.create(order);
+        return withIncidentDiscount(repository.create(order));
     }
 
     // ==========================================================
@@ -102,7 +119,7 @@ public class OrderService implements OrderUseCase {
             );
         }
 
-        return repository.getById(id);
+        return withIncidentDiscount(repository.getById(id));
     }
 
     // ==========================================================
@@ -112,7 +129,7 @@ public class OrderService implements OrderUseCase {
     @Override
     public List<Order> getAll() {
 
-        return repository.getAll();
+        return repository.getAll().stream().map(this::withIncidentDiscount).toList();
     }
 
     // ==========================================================
@@ -138,17 +155,25 @@ public class OrderService implements OrderUseCase {
 
         Order current = repository.getById(id);
 
+        if (current.getItems().stream().anyMatch(item -> isTerminalItemStatus(item.getStatus()))) {
+            log.warn("Rejected full replacement of order {} because it contains terminal items", id);
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "La orden contiene productos servidos o cancelados. Agregue productos mediante la acción correspondiente."
+            );
+        }
+
         /*
          * Una orden solamente puede modificarse
          * mientras esté pendiente.
          */
-        Set<String> editableStatuses = Set.of("PENDING", "PREPARING", "READY");
-        if (!editableStatuses.contains(current.getStatus())) {
-            log.warn("Rejected update for order {} in terminal status {}", id, current.getStatus());
+        if (!"PENDING".equals(current.getStatus()) ||
+                current.getItems().stream().anyMatch(item -> !"PENDING".equals(item.getStatus()))) {
+            log.warn("Rejected full replacement of order {} because it contains non-pending items", id);
 
             throw new BusinessException(
                     HttpStatus.BAD_REQUEST,
-                    "La orden solamente puede modificarse mientras se encuentre pendiente, en preparaciÃ³n o lista."
+                    "La edición general solo está permitida cuando todos los productos están pendientes."
             );
         }
 
@@ -159,7 +184,289 @@ public class OrderService implements OrderUseCase {
         order.setCashRegisterId(current.getCashRegisterId());
         order.setStatus(current.getStatus());
 
-        return repository.update(id, order);
+        return withIncidentDiscount(repository.update(id, order));
+    }
+
+    @Override
+    @Transactional
+    public Order addItem(Long orderId, OrderItem item) {
+        if (orderId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El id de la orden es obligatorio.");
+        }
+
+        validateOrderItem(item);
+        Order current = repository.getById(orderId);
+        ensureActiveOrder(current);
+
+        item.setId(null);
+        item.setOrderId(orderId);
+        item.setStatus("PENDING");
+        item.setFulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), current.getOrderType()));
+        reserveItems(List.of(item));
+
+        log.info("Adding product {} as a new item to order {}", item.getProductId(), orderId);
+        return withIncidentDiscount(repository.addItem(orderId, item));
+    }
+
+    @Override
+    @Transactional
+    public Order updatePendingItem(Long orderId, Long itemId, OrderItem item) {
+        validateOrderItem(item);
+        Order current = requireOrderItem(orderId, itemId, "PENDING");
+        OrderItem existing = current.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst().orElseThrow();
+        item.setId(itemId);
+        item.setOrderId(orderId);
+        item.setStatus("PENDING");
+        item.setFulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), current.getOrderType()));
+        adjustReservedStock(List.of(existing), List.of(item));
+        log.info("Updating pending item {} in order {}", itemId, orderId);
+        return withIncidentDiscount(repository.updatePendingItem(orderId, itemId, item, SecurityUtil.getCurrentUserId()));
+    }
+
+    @Override
+    @Transactional
+    public Order cancelPendingItem(Long orderId, Long itemId, String comment, String stockDisposition) {
+        if (comment == null || comment.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El motivo de cancelación es obligatorio.");
+        }
+        Order current = repository.getById(orderId);
+        ensureActiveOrder(current);
+        OrderItem item = current.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst().orElseThrow();
+        if ("CANCELLED".equals(item.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El producto ya está cancelado.");
+        }
+        String disposition = stockDisposition == null ? "" : stockDisposition.trim().toUpperCase();
+        if (!Set.of("RETURN_TO_STOCK", "WASTE").contains(disposition)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El destino del producto debe ser RETURN_TO_STOCK o WASTE.");
+        }
+        productRepository.releaseReservedStock(item.getProductId(), toStockQuantity(item.getQuantity()));
+        if ("WASTE".equals(disposition)) {
+            inventoryMovementUseCase.create(InventoryMovementCreateRequest.builder()
+                    .productId(item.getProductId()).type("WASTE").quantity(item.getQuantity())
+                    .reason("Cancelación de producto: " + comment.trim())
+                    .referenceType("ORDER_ITEM_CANCELLATION").referenceId(itemId).build());
+        }
+        incidentRepository.supersedeApprovedDiscounts(orderId, itemId);
+        log.info("Cancelling {} item {} in order {}", disposition, itemId, orderId);
+        return withIncidentDiscount(repository.cancelServedItem(orderId, itemId,
+                "[" + disposition + "] " + comment.trim(), SecurityUtil.getCurrentUserId()));
+    }
+
+    @Override
+    @Transactional
+    public Order splitPendingItem(Long orderId, Long itemId, BigDecimal quantity) {
+        Order current = requireOrderItem(orderId, itemId, "PENDING");
+        OrderItem item = current.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst().orElseThrow();
+        toStockQuantity(quantity);
+        if (quantity.compareTo(item.getQuantity()) >= 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La cantidad a dividir debe ser menor que la cantidad pendiente.");
+        }
+        log.info("Splitting pending item {} in order {} by quantity {}", itemId, orderId, quantity);
+        return withIncidentDiscount(repository.splitPendingItem(orderId, itemId, quantity, SecurityUtil.getCurrentUserId()));
+    }
+
+    @Override
+    @Transactional
+    public Order updateItemStatus(Long orderId, Long itemId, String status, String comment) {
+        if (orderId == null || itemId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden y el producto son obligatorios.");
+        }
+        if (status == null || status.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El estado del producto es obligatorio.");
+        }
+
+        Order current = repository.getById(orderId);
+        ensureActiveOrder(current);
+        OrderItem item = current.getItems().stream()
+                .filter(currentItem -> itemId.equals(currentItem.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "El producto no pertenece a la orden."));
+
+        String requestedStatus = status.trim().toUpperCase();
+        validateItemStatusTransition(item.getStatus(), requestedStatus);
+        log.info("Changing item {} of order {} from {} to {}", itemId, orderId, item.getStatus(), requestedStatus);
+        return withIncidentDiscount(repository.updateItemStatus(
+                orderId,
+                itemId,
+                requestedStatus,
+                normalizeOptional(comment),
+                SecurityUtil.getCurrentUserId()
+        ));
+    }
+
+    @Override
+    @Transactional
+    public Order updateItemsStatus(Long orderId, List<Long> itemIds, String status, String comment) {
+        if (itemIds == null || itemIds.isEmpty()) throw new BusinessException(HttpStatus.BAD_REQUEST, "Debe seleccionar al menos un producto.");
+        Order order = repository.getById(orderId);
+        ensureActiveOrder(order);
+        String requested = status == null ? "" : status.trim().toUpperCase();
+        boolean restorePrevious = "RESTORE_PREVIOUS".equals(requested);
+        String manualCorrectionTarget = manualCorrectionTarget(requested);
+        for (Long itemId : itemIds.stream().distinct().toList()) {
+            OrderItem item = order.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst()
+                    .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Un producto no pertenece a la orden."));
+            if (restorePrevious) validatePreviousStatusRestoration(orderId, item);
+            else if (manualCorrectionTarget != null) validateManualStatusCorrection(item);
+            else validateItemStatusTransition(item.getStatus(), requested);
+        }
+        Order updated = order;
+        for (Long itemId : itemIds.stream().distinct().toList()) {
+            OrderItem item = updated.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst().orElseThrow();
+            String target = restorePrevious ? previousStatus(orderId, item)
+                    : manualCorrectionTarget != null ? manualCorrectionTarget : requested;
+            if (target.equals(item.getStatus())) continue;
+            updated = repository.updateItemStatus(orderId, itemId, target,
+                    restorePrevious ? "Corrección: restaurado al estado anterior"
+                            : manualCorrectionTarget != null ? manualCorrectionComment(comment) : normalizeOptional(comment),
+                    SecurityUtil.getCurrentUserId());
+        }
+        log.info("Updated {} items of order {} to {}", itemIds.size(), orderId, requested);
+        return withIncidentDiscount(updated);
+    }
+
+    private void validatePreviousStatusRestoration(Long orderId, OrderItem item) {
+        if (!SecurityUtil.hasAuthority("CORRECT_ORDER_ITEM_STATUS")) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "No tiene permiso para corregir el estado de un producto.");
+        }
+        if ("CANCELLED".equals(item.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "No se puede corregir un producto cancelado.");
+        }
+        previousStatus(orderId, item);
+    }
+
+    private String previousStatus(Long orderId, OrderItem item) {
+        List<OrderItemStatusHistory> history = repository.getItemStatusHistory(orderId, item.getId());
+        if (history.isEmpty()) throw new BusinessException(HttpStatus.BAD_REQUEST, "El producto no tiene un estado anterior para restaurar.");
+        OrderItemStatusHistory last = history.get(history.size() - 1);
+        if (!item.getStatus().equals(last.getNewStatus()) || last.getPreviousStatus() == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "No se puede restaurar el estado anterior del producto.");
+        }
+        return last.getPreviousStatus();
+    }
+
+    private String manualCorrectionTarget(String requested) {
+        if (!requested.startsWith("CORRECT_TO_")) return null;
+        String target = requested.substring("CORRECT_TO_".length());
+        if (!List.of("PENDING", "PREPARING", "READY", "SERVED").contains(target)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El estado de corrección no es válido.");
+        }
+        return target;
+    }
+
+    private void validateManualStatusCorrection(OrderItem item) {
+        if (!SecurityUtil.hasAuthority("CORRECT_ORDER_ITEM_STATUS")) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "No tiene permiso para corregir el estado de un producto.");
+        }
+        if ("CANCELLED".equals(item.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "No se puede corregir un producto cancelado.");
+        }
+    }
+
+    private String manualCorrectionComment(String comment) {
+        String normalized = normalizeOptional(comment);
+        return normalized == null ? "Corrección manual de estado" : normalized;
+    }
+
+    @Override
+    public List<OrderItemStatusHistory> getItemStatusHistory(Long orderId, Long itemId) {
+        if (orderId == null || itemId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden y el producto son obligatorios.");
+        }
+        return repository.getItemStatusHistory(orderId, itemId);
+    }
+
+    @Override
+    @Transactional
+    public Order reportServedItemIncident(Long orderId, Long itemId, OrderItemIncidentRequest request) {
+        Order order = repository.getById(orderId);
+        ensureActiveOrder(order);
+        if (saleRepository.existsByOrderId(orderId)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "No se pueden registrar incidencias después de cobrar la orden.");
+        }
+        OrderItem item = order.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "El producto no pertenece a la orden."));
+        if (!"SERVED".equals(item.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Solo se puede reportar una incidencia sobre un producto servido.");
+        }
+        String resolution = request.getResolution().trim().toUpperCase();
+        if (!Set.of("CANCEL_NO_CHARGE", "REPLACE", "DISCOUNT").contains(resolution)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La resolución debe ser CANCEL_NO_CHARGE o REPLACE.");
+        }
+        BigDecimal discount = request.getDiscountAmount() == null ? BigDecimal.ZERO : request.getDiscountAmount();
+        if ("DISCOUNT".equals(resolution)) {
+            if (discount.signum() <= 0) throw new BusinessException(HttpStatus.BAD_REQUEST, "El descuento debe ser mayor a cero.");
+            boolean hasActiveDiscount = incidentRepository.findByOrderId(orderId).stream()
+                    .anyMatch(value -> itemId.equals(value.getOrderItemId())
+                            && "DISCOUNT".equals(value.getResolution())
+                            && isApprovedIncident(value.getStatus()));
+            if (hasActiveDiscount) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST,
+                        "El producto ya tiene un descuento vigente. Aplique una compensación final en lugar de otro descuento.");
+            }
+            BigDecimal chargeable = order.getItems().stream().filter(value -> !"CANCELLED".equals(value.getStatus()))
+                    .map(value -> value.getUnitPrice().multiply(value.getQuantity())).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal approved = incidentRepository.findByOrderId(orderId).stream()
+                    .filter(value -> "DISCOUNT".equals(value.getResolution()) && isApprovedIncident(value.getStatus()))
+                    .map(OrderItemIncident::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (approved.add(discount).compareTo(chargeable) > 0) throw new BusinessException(HttpStatus.BAD_REQUEST, "El descuento supera el total cobrable de la orden.");
+        } else if (discount.signum() != 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Solo las incidencias de descuento pueden tener monto.");
+        }
+        if ("CANCEL_NO_CHARGE".equals(resolution) || "REPLACE".equals(resolution)) {
+            incidentRepository.supersedeApprovedDiscounts(orderId, itemId);
+        }
+        incidentRepository.save(OrderItemIncident.builder().orderId(orderId).orderItemId(itemId)
+                .productId(item.getProductId()).resolution(resolution).reason(request.getReason().trim())
+                .discountAmount(discount).reportedBy(SecurityUtil.getCurrentUserId())
+                .reportedAt(java.time.LocalDateTime.now().withNano(0)).status("APPROVED")
+                .approvedBy(SecurityUtil.getCurrentUserId()).approvedAt(java.time.LocalDateTime.now().withNano(0)).build());
+        if ("DISCOUNT".equals(resolution)) {
+            log.info("Discount incident approved for served item {} in order {}", itemId, orderId);
+            return withIncidentDiscount(order);
+        }
+        productRepository.releaseReservedStock(item.getProductId(), toStockQuantity(item.getQuantity()));
+        inventoryMovementUseCase.create(InventoryMovementCreateRequest.builder().productId(item.getProductId())
+                .type("WASTE").quantity(item.getQuantity()).reason(request.getReason().trim())
+                .referenceType("ORDER_INCIDENT").referenceId(itemId).build());
+        Order updated = repository.cancelServedItem(orderId, itemId,
+                "INCIDENCIA [" + resolution + "]: " + request.getReason().trim(), SecurityUtil.getCurrentUserId());
+        if ("REPLACE".equals(resolution)) {
+            OrderItem replacement = OrderItem.builder().productId(item.getProductId()).quantity(item.getQuantity())
+                    .unitPrice(item.getUnitPrice()).notes("Reposición por incidencia")
+                    .fulfillmentType(item.getFulfillmentType()).build();
+            reserveItems(List.of(replacement));
+            updated = repository.addItem(orderId, replacement);
+        }
+        log.info("Incident {} applied to served item {} in order {}", resolution, itemId, orderId);
+        return withIncidentDiscount(updated);
+    }
+
+    @Override
+    public List<OrderItemIncident> getIncidents(Long orderId) {
+        repository.getById(orderId);
+        return incidentRepository.findByOrderId(orderId);
+    }
+
+    private boolean isApprovedIncident(String status) {
+        return "APPROVED".equalsIgnoreCase(status) || "APROVED".equalsIgnoreCase(status);
+    }
+
+    private Order withIncidentDiscount(Order order) {
+        if (order == null || order.getId() == null) return order;
+        BigDecimal discount = incidentRepository.findByOrderId(order.getId()).stream()
+                .filter(incident -> "DISCOUNT".equals(incident.getResolution())
+                        && isApprovedIncident(incident.getStatus())
+                        && isChargeableItem(order, incident.getOrderItemId()))
+                .map(OrderItemIncident::getDiscountAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setIncidentDiscount(discount);
+        return order;
+    }
+
+    private boolean isChargeableItem(Order order, Long itemId) {
+        return order.getItems().stream()
+                .anyMatch(item -> itemId.equals(item.getId()) && !"CANCELLED".equals(item.getStatus()));
     }
 
     // ==========================================================
@@ -223,10 +530,17 @@ public class OrderService implements OrderUseCase {
         );
 
         if ("CANCELLED".equals(status)) {
+            if (current.getItems().stream().anyMatch(item -> "SERVED".equals(item.getStatus()))) {
+                log.warn("Rejected cancellation of order {} because it contains served items", id);
+                throw new BusinessException(
+                        HttpStatus.BAD_REQUEST,
+                        "La orden contiene productos servidos. Deben gestionarse mediante el flujo de incidencias."
+                );
+            }
             releaseItems(current.getItems());
         }
 
-        return repository.updateStatus(id, status);
+        return withIncidentDiscount(repository.updateStatus(id, status));
     }
 
     // ==========================================================
@@ -259,7 +573,27 @@ public class OrderService implements OrderUseCase {
 
         repository.delete(id);
     }
-    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search) { return repository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate, status, search); }
+    @Override public PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search) {
+        PageResponseDTO<Order> result = repository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate, status, search);
+        result.getItems().forEach(this::withIncidentDiscount);
+        return result;
+    }
+
+    @Override
+    public PageResponseDTO<Order> getKitchenQueue(int page, int size) {
+        PageResponseDTO<Order> result = repository.getKitchenQueue(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), 100)
+        );
+        result.getItems().forEach(order -> order.getItems().forEach(item -> {
+            var product = productRepository.findById(item.getProductId());
+            if (product != null) {
+                item.setProductName(product.getName());
+            }
+        }));
+        result.getItems().forEach(this::withIncidentDiscount);
+        return result;
+    }
 
     // ==========================================================
     // RESERVA DE STOCK
@@ -287,7 +621,10 @@ public class OrderService implements OrderUseCase {
 
     private void releaseItems(List<OrderItem> items) {
 
-        for (Map.Entry<Long, Long> entry : quantitiesByProduct(items).entrySet()) {
+        List<OrderItem> activeItems = items.stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .toList();
+        for (Map.Entry<Long, Long> entry : quantitiesByProduct(activeItems).entrySet()) {
             productRepository.releaseReservedStock(
                     entry.getKey(),
                     entry.getValue()
@@ -422,33 +759,81 @@ public class OrderService implements OrderUseCase {
         }
 
         for (OrderItem item : order.getItems()) {
-
-            if (item.getProductId() == null) {
-
-                throw new BusinessException(
-                        HttpStatus.BAD_REQUEST,
-                        "El producto es obligatorio en cada item."
-                );
-            }
-
-            if (item.getQuantity() == null ||
-                    item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-
-                throw new BusinessException(
-                        HttpStatus.BAD_REQUEST,
-                        "La cantidad debe ser mayor que cero."
-                );
-            }
-
-            if (item.getUnitPrice() == null ||
-                    item.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
-
-                throw new BusinessException(
-                        HttpStatus.BAD_REQUEST,
-                        "El precio unitario no puede ser negativo."
-                );
-            }
+            validateOrderItem(item);
         }
+    }
+
+    private void validateOrderItem(OrderItem item) {
+        if (item == null || item.getProductId() == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El producto es obligatorio en cada item.");
+        }
+        if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La cantidad debe ser mayor que cero.");
+        }
+        toStockQuantity(item.getQuantity());
+        if (item.getUnitPrice() == null || item.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El precio unitario no puede ser negativo.");
+        }
+    }
+
+    private void ensureActiveOrder(Order order) {
+        if ("COMPLETED".equals(order.getStatus()) || "CANCELLED".equals(order.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden no admite cambios en su estado actual.");
+        }
+    }
+
+    private boolean isTerminalItemStatus(String status) {
+        return "SERVED".equals(status) || "CANCELLED".equals(status);
+    }
+
+    private String defaultFulfillmentType(String fulfillmentType, String orderType) {
+        return fulfillmentType == null || fulfillmentType.isBlank()
+                ? "TAKEAWAY".equals(orderType) ? "TAKEAWAY" : "DINE_IN"
+                : fulfillmentType.trim().toUpperCase();
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
+    }
+
+    private void validateItemStatusTransition(String currentStatus, String requestedStatus) {
+        String current = currentStatus == null ? "PENDING" : currentStatus;
+        boolean isCorrection = ("PENDING".equals(current) && "SERVED".equals(requestedStatus))
+                || (("PREPARING".equals(current) || "READY".equals(current) || "SERVED".equals(current))
+                && "PENDING".equals(requestedStatus));
+        if (isCorrection && !SecurityUtil.hasAuthority("CORRECT_ORDER_ITEM_STATUS")) {
+            throw new BusinessException(HttpStatus.FORBIDDEN,
+                    "No tiene permiso para corregir el estado de un producto.");
+        }
+        boolean valid = switch (current) {
+            case "PENDING" -> "PREPARING".equals(requestedStatus) || "SERVED".equals(requestedStatus);
+            case "PREPARING" -> "READY".equals(requestedStatus) || "PENDING".equals(requestedStatus);
+            case "READY" -> "SERVED".equals(requestedStatus) || "PENDING".equals(requestedStatus);
+            case "SERVED" -> "PENDING".equals(requestedStatus);
+            default -> false;
+        };
+        if (!valid) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "No se puede cambiar el producto de " + current + " a " + requestedStatus + ".");
+        }
+    }
+
+    private Order requireOrderItem(Long orderId, Long itemId, String expectedStatus) {
+        if (orderId == null || itemId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "La orden y el producto son obligatorios.");
+        }
+        Order order = repository.getById(orderId);
+        ensureActiveOrder(order);
+        OrderItem item = order.getItems().stream()
+                .filter(value -> itemId.equals(value.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "El producto no pertenece a la orden."));
+        if (!expectedStatus.equals(item.getStatus())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "Solo se pueden modificar productos en estado " + expectedStatus + ".");
+        }
+        return order;
     }
 
     // ==========================================================

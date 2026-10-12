@@ -1,6 +1,8 @@
 package com.sistema.sistema.infrastructure.persistence.order;
 
 import com.sistema.sistema.domain.model.Order;
+import com.sistema.sistema.domain.model.OrderItem;
+import com.sistema.sistema.domain.model.OrderItemStatusHistory;
 import com.sistema.sistema.domain.repository.OrderRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,13 +26,19 @@ public class OrderDAOImpl implements OrderRepository {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final JpaOrderRepository jpa;
+    private final JpaOrderItemRepository itemJpa;
+    private final JpaOrderItemStatusHistoryRepository statusHistoryJpa;
     private final OrderMapper mapper;
 
     public OrderDAOImpl(
             JpaOrderRepository jpa,
+            JpaOrderItemRepository itemJpa,
+            JpaOrderItemStatusHistoryRepository statusHistoryJpa,
             OrderMapper mapper
     ) {
         this.jpa = jpa;
+        this.itemJpa = itemJpa;
+        this.statusHistoryJpa = statusHistoryJpa;
         this.mapper = mapper;
     }
 
@@ -65,13 +73,153 @@ public class OrderDAOImpl implements OrderRepository {
                 item.setId(null);
                 item.setOrder(entity);
                 item.setCreatedAt(now);
+                item.setModifiedBy(null);
+                item.setModifiedAt(null);
 
             });
         }
 
-        OrderEntity saved = jpa.save(entity);
+        // La nueva lÃ­nea se inserta por cascada; forzamos el flush para que
+        // PostgreSQL asigne su id antes de crear el registro de historial.
+        OrderEntity saved = jpa.saveAndFlush(entity);
+        saveInitialStatusHistory(saved, currentUserId, now);
 
         return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Order addItem(Long orderId, OrderItem item) {
+        OrderEntity entity = jpa.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + orderId));
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        OrderItemEntity itemEntity = OrderItemEntity.builder()
+                .order(entity)
+                .productId(item.getProductId())
+                .quantity(item.getQuantity())
+                .unitPrice(item.getUnitPrice())
+                .notes(item.getNotes())
+                .fulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), entity.getOrderType()))
+                .status(defaultItemStatus(item.getStatus()))
+                .createdAt(now)
+                .build();
+        // Persistimos explícitamente el item para tener su identificador antes
+        // de crear el historial inicial.
+        OrderItemEntity persistedItem = itemJpa.saveAndFlush(itemEntity);
+        entity.getItems().add(persistedItem);
+        entity.setModifiedBy(currentUserId);
+        entity.setModifiedAt(now);
+        entity.setStatus(deriveOrderStatus(entity.getItems()));
+        // El item dividido tambiÃ©n recibe el id durante el flush en cascada.
+        OrderEntity saved = jpa.saveAndFlush(entity);
+        statusHistoryJpa.save(OrderItemStatusHistoryEntity.builder()
+                .orderItemId(persistedItem.getId())
+                .newStatus(persistedItem.getStatus())
+                .changedBy(currentUserId)
+                .changedAt(now)
+                .build());
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Order updatePendingItem(Long orderId, Long itemId, OrderItem item, Long modifiedBy) {
+        OrderEntity entity = findOrderEntity(orderId);
+        OrderItemEntity itemEntity = findItemEntity(entity, itemId);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        itemEntity.setProductId(item.getProductId());
+        itemEntity.setQuantity(item.getQuantity());
+        itemEntity.setUnitPrice(item.getUnitPrice());
+        itemEntity.setNotes(item.getNotes());
+        itemEntity.setFulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), entity.getOrderType()));
+        itemEntity.setModifiedBy(modifiedBy);
+        itemEntity.setModifiedAt(now);
+        entity.setModifiedBy(modifiedBy);
+        entity.setModifiedAt(now);
+        return mapper.toDomain(jpa.save(entity));
+    }
+
+    @Override
+    public Order cancelPendingItem(Long orderId, Long itemId, String comment, Long changedBy) {
+        OrderEntity entity = findOrderEntity(orderId);
+        OrderItemEntity item = findItemEntity(entity, itemId);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        item.setStatus("CANCELLED");
+        item.setModifiedBy(changedBy);
+        item.setModifiedAt(now);
+        entity.setStatus(deriveOrderStatus(entity.getItems()));
+        entity.setModifiedBy(changedBy);
+        entity.setModifiedAt(now);
+        OrderEntity saved = jpa.save(entity);
+        saveStatusHistory(itemId, "PENDING", "CANCELLED", comment, changedBy, now);
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, Long changedBy) {
+        OrderEntity entity = findOrderEntity(orderId);
+        OrderItemEntity source = findItemEntity(entity, itemId);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        source.setQuantity(source.getQuantity().subtract(quantity));
+        source.setModifiedBy(changedBy);
+        source.setModifiedAt(now);
+        OrderItemEntity split = OrderItemEntity.builder()
+                .order(entity)
+                .productId(source.getProductId())
+                .quantity(quantity)
+                .unitPrice(source.getUnitPrice())
+                .notes(source.getNotes())
+                .fulfillmentType(source.getFulfillmentType())
+                .status("PENDING")
+                .createdAt(now)
+                .build();
+        OrderItemEntity persistedSplit = itemJpa.saveAndFlush(split);
+        entity.getItems().add(persistedSplit);
+        entity.setModifiedBy(changedBy);
+        entity.setModifiedAt(now);
+        OrderEntity saved = jpa.saveAndFlush(entity);
+        statusHistoryJpa.save(OrderItemStatusHistoryEntity.builder()
+                .orderItemId(persistedSplit.getId())
+                .newStatus("PENDING")
+                .changedBy(changedBy)
+                .changedAt(now)
+                .comment("Item creado por división parcial")
+                .build());
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Order updateItemStatus(Long orderId, Long itemId, String status, String comment, Long changedBy) {
+        OrderEntity entity = findOrderEntity(orderId);
+        OrderItemEntity item = findItemEntity(entity, itemId);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        String previousStatus = item.getStatus();
+        item.setStatus(status);
+        item.setModifiedBy(changedBy);
+        item.setModifiedAt(now);
+        entity.setStatus(deriveOrderStatus(entity.getItems()));
+        entity.setModifiedBy(changedBy);
+        entity.setModifiedAt(now);
+        OrderEntity saved = jpa.save(entity);
+        saveStatusHistory(itemId, previousStatus, status, comment, changedBy, now);
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Order cancelServedItem(Long orderId, Long itemId, String comment, Long changedBy) {
+        return updateItemStatus(orderId, itemId, "CANCELLED", comment, changedBy);
+    }
+
+    @Override
+    public List<OrderItemStatusHistory> getItemStatusHistory(Long orderId, Long itemId) {
+        OrderEntity entity = jpa.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + orderId));
+        boolean itemBelongsToOrder = entity.getItems().stream().anyMatch(item -> itemId.equals(item.getId()));
+        if (!itemBelongsToOrder) {
+            throw new EntityNotFoundException("Producto de orden no encontrado con id: " + itemId);
+        }
+        return statusHistoryJpa.findByOrderItemIdOrderByChangedAtAscIdAsc(itemId).stream()
+                .map(this::toDomainHistory)
+                .toList();
     }
 
     // ==========================================================
@@ -148,7 +296,11 @@ public class OrderDAOImpl implements OrderRepository {
                                 .quantity(item.getQuantity())
                                 .unitPrice(item.getUnitPrice())
                                 .notes(item.getNotes())
+                                .fulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), entity.getOrderType()))
+                                .status(defaultItemStatus(item.getStatus()))
                                 .createdAt(now)
+                                .modifiedBy(currentUserId)
+                                .modifiedAt(now)
                                 .build();
 
                 entity.getItems().add(itemEntity);
@@ -251,10 +403,88 @@ public class OrderDAOImpl implements OrderRepository {
         return new PageResponseDTO<>(mapper.toDomainList(result.getContent()), result.getTotalElements(), page, size, result.hasNext());
     }
 
+    @Override
+    public PageResponseDTO<Order> getKitchenQueue(int page, int size) {
+        Page<OrderEntity> result = jpa.findKitchenQueue(PageRequest.of(page, size));
+        return new PageResponseDTO<>(
+                mapper.toDomainList(result.getContent()),
+                result.getTotalElements(),
+                page,
+                size,
+                result.hasNext()
+        );
+    }
+
     private String normalize(String value) {
         return value == null || value.isBlank() || "ALL".equalsIgnoreCase(value)
                 ? null
                 : value.trim();
+    }
+
+    private OrderEntity findOrderEntity(Long orderId) {
+        return jpa.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + orderId));
+    }
+
+    private OrderItemEntity findItemEntity(OrderEntity order, Long itemId) {
+        return order.getItems().stream()
+                .filter(item -> itemId.equals(item.getId()))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("Producto de orden no encontrado con id: " + itemId));
+    }
+
+    private void saveStatusHistory(Long itemId, String previousStatus, String newStatus,
+                                   String comment, Long changedBy, LocalDateTime changedAt) {
+        statusHistoryJpa.save(OrderItemStatusHistoryEntity.builder()
+                .orderItemId(itemId)
+                .previousStatus(previousStatus)
+                .newStatus(newStatus)
+                .comment(comment)
+                .changedBy(changedBy)
+                .changedAt(changedAt)
+                .build());
+    }
+
+    private String defaultFulfillmentType(String fulfillmentType, String orderType) {
+        return fulfillmentType != null ? fulfillmentType : "TAKEAWAY".equals(orderType) ? "TAKEAWAY" : "DINE_IN";
+    }
+
+    private String defaultItemStatus(String status) {
+        return status == null ? "PENDING" : status;
+    }
+
+    private void saveInitialStatusHistory(OrderEntity order, Long changedBy, LocalDateTime changedAt) {
+        List<OrderItemStatusHistoryEntity> history = order.getItems().stream()
+                .map(item -> OrderItemStatusHistoryEntity.builder()
+                        .orderItemId(item.getId())
+                        .newStatus(item.getStatus())
+                        .changedBy(changedBy)
+                        .changedAt(changedAt)
+                        .build())
+                .toList();
+        statusHistoryJpa.saveAll(history);
+    }
+
+    private String deriveOrderStatus(List<OrderItemEntity> items) {
+        List<OrderItemEntity> activeItems = items.stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .toList();
+        if (activeItems.isEmpty()) return "CANCELLED";
+        if (activeItems.stream().allMatch(item -> "PENDING".equals(item.getStatus()))) return "PENDING";
+        if (activeItems.stream().allMatch(item -> "READY".equals(item.getStatus()) || "SERVED".equals(item.getStatus()))) return "READY";
+        return "PREPARING";
+    }
+
+    private OrderItemStatusHistory toDomainHistory(OrderItemStatusHistoryEntity entity) {
+        return OrderItemStatusHistory.builder()
+                .id(entity.getId())
+                .orderItemId(entity.getOrderItemId())
+                .previousStatus(entity.getPreviousStatus())
+                .newStatus(entity.getNewStatus())
+                .comment(entity.getComment())
+                .changedBy(entity.getChangedBy())
+                .changedAt(entity.getChangedAt())
+                .build();
     }
 
     private LocalDateTime nextOrderTime(LocalDateTime now) {

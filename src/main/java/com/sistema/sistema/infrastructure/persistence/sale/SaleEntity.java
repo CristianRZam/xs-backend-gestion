@@ -19,6 +19,7 @@ public class SaleEntity {
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal discount;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal total;
     @Column(nullable = false, length = 20) private String status;
+    @Column(length = 500) private String notes;
     @Column(name = "created_by") private Long createdBy;
     @Column(name = "created_at") private LocalDateTime createdAt;
     @Column(name = "modified_by") private Long modifiedBy;

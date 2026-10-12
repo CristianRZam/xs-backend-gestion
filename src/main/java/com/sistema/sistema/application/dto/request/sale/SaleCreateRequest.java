@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,6 +19,7 @@ public class SaleCreateRequest {
     private Long orderId;
     // El servidor genera el número con la fecha y hora de registro.
     private String saleNumber;
+    @Size(max = 500) private String notes;
     @PositiveOrZero private BigDecimal discount = BigDecimal.ZERO;
     @Valid @NotEmpty private List<SaleItemRequest> items;
     @Valid @NotEmpty private List<PaymentRequest> payments;

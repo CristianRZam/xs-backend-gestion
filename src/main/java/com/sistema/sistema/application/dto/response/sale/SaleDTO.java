@@ -18,6 +18,7 @@ public class SaleDTO {
     private final BigDecimal discount;
     private final BigDecimal total;
     private final String status;
+    private final String notes;
     private final Long createdBy;
     private final String createdByName;
     private final LocalDateTime createdAt;
