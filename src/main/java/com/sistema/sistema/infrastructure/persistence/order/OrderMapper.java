@@ -146,7 +146,14 @@ public class OrderMapper {
     }
 
     private String defaultFulfillmentType(String fulfillmentType, String orderType) {
-        return fulfillmentType != null ? fulfillmentType : "TAKEAWAY".equals(orderType) ? "TAKEAWAY" : "DINE_IN";
+        if (fulfillmentType != null && !fulfillmentType.isBlank()) {
+            return fulfillmentType.trim().toUpperCase();
+        }
+        return switch (orderType == null ? "DINE_IN" : orderType.trim().toUpperCase()) {
+            case "TAKEAWAY" -> "TAKEAWAY";
+            case "DELIVERY" -> "DELIVERY";
+            default -> "DINE_IN";
+        };
     }
 
     private String defaultItemStatus(String status) {

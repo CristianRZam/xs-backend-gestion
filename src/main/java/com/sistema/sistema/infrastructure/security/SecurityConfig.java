@@ -122,7 +122,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/sales").hasAuthority("VIEW_SALE")
                         .requestMatchers(HttpMethod.GET, "/api/sales/*").hasAuthority("VIEW_SALE")
                         // DASHBOARD
-                        .requestMatchers(HttpMethod.GET, "/api/dashboard").hasAuthority("VIEW_DASHBOARD")
+                        .requestMatchers(HttpMethod.GET, "/api/dashboard/**").hasAnyAuthority("VIEW_DASHBOARD", "VIEW_OWN_DASHBOARD")
                         //ROLE
                         .requestMatchers(HttpMethod.POST, "/api/role/create").hasAuthority("CREATE_ROLE")
                         .requestMatchers(HttpMethod.PUT, "/api/role/update").hasAuthority("EDIT_ROLE")

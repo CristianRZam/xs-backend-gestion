@@ -54,7 +54,8 @@ public class ProductDAOImpl implements ProductRepository {
                 request.getManageVariant(),
                 request.getStatus(),
                 minStock,
-                maxStock
+                maxStock,
+                request.getAvailableOnly()
         );
 
         return entities.stream()
@@ -93,6 +94,7 @@ public class ProductDAOImpl implements ProductRepository {
                 request.getStatus(),
                 minStock,
                 maxStock,
+                request.getAvailableOnly(),
                 pageable
         ).map(mapper::toDTOFromEntity);
     }
@@ -122,7 +124,8 @@ public class ProductDAOImpl implements ProductRepository {
                 valuationMethods,
                 true,
                 request.getMinimumStock() != null ? request.getMinimumStock().longValue() : null,
-                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null
+                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null,
+                request.getAvailableOnly()
         );
 
         Long inactiveCount = jpa.countFiltered(
@@ -134,7 +137,8 @@ public class ProductDAOImpl implements ProductRepository {
                 valuationMethods,
                 false,
                 request.getMinimumStock() != null ? request.getMinimumStock().longValue() : null,
-                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null
+                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null,
+                request.getAvailableOnly()
         );
 
         var totalStock = jpa.sumFilteredStock(
@@ -146,7 +150,8 @@ public class ProductDAOImpl implements ProductRepository {
                 valuationMethods,
                 request.getStatus(),
                 request.getMinimumStock() != null ? request.getMinimumStock().longValue() : null,
-                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null
+                request.getMaximumStock() != null ? request.getMaximumStock().longValue() : null,
+                request.getAvailableOnly()
         );
 
         return ProductViewResponse.builder()
@@ -264,20 +269,8 @@ public class ProductDAOImpl implements ProductRepository {
 
     @Override
     public boolean updateStock(Long id, long stock) {
-
-        ProductEntity entity = jpa.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Producto no encontrado con id: " + id));
-
-        entity.setTotalStock(stock);
-
         Long currentUserId = SecurityUtil.getCurrentUserId();
-        entity.setModifiedBy(currentUserId);
-        entity.setModifiedAt(LocalDateTime.now());
-
-        jpa.save(entity);
-
-        return true;
+        return jpa.updateStockKeepingReservations(id, stock, currentUserId) > 0;
     }
 
     @Override

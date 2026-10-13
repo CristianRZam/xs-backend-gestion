@@ -15,7 +15,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -36,9 +35,9 @@ class DashboardDAOImplTest {
             statements.add(sql);
             Query query = mock(Query.class);
 
-            if (sql.startsWith("SELECT COALESCE(SUM(total),0), COUNT(*) FROM sales")) {
+            if (sql.contains("COALESCE(SUM(s.total), 0)")) {
                 when(query.getSingleResult()).thenReturn(new Object[]{new BigDecimal("100.00"), 3L});
-            } else if (sql.contains("FROM orders")) {
+            } else if (sql.contains("FROM orders o")) {
                 when(query.getSingleResult()).thenReturn(2L);
             } else if (sql.contains("FROM sale_items")) {
                 when(query.getResultList()).thenReturn(
@@ -48,7 +47,7 @@ class DashboardDAOImplTest {
                 when(query.getResultList()).thenReturn(
                         Collections.singletonList(new Object[]{"CASH", new BigDecimal("70.00")})
                 );
-            } else if (sql.contains("DATE(created_at),SUM(total)")) {
+            } else if (sql.contains("DATE(s.created_at), SUM(s.total)")) {
                 when(query.getResultList()).thenReturn(Collections.singletonList(
                         new Object[]{Date.valueOf(today.minusDays(1)), new BigDecimal("50.00")}
                 ));
@@ -59,10 +58,10 @@ class DashboardDAOImplTest {
 
     @Test
     void getSummaryBuildsTheGlobalDashboardWithSevenDaySeries() {
-        var summary = repository.getSummary();
+        var summary = repository.getSummary(today.minusDays(6), today, null, "GLOBAL");
 
         assertEquals("GLOBAL", summary.getScope());
-        assertNull(summary.getSummaryDate());
+        assertEquals(today, summary.getSummaryDate());
         assertEquals(new BigDecimal("100.00"), summary.getTodaySales());
         assertEquals(3L, summary.getTodaySalesCount());
         assertEquals(new BigDecimal("33.33"), summary.getAverageSale());
@@ -79,13 +78,22 @@ class DashboardDAOImplTest {
     }
 
     @Test
+    void getSummaryRestrictsEveryMetricToTheRequestedSeller() {
+        var summary = repository.getSummary(today.minusDays(6), today, 42L, "MY_SALES");
+
+        assertEquals("MY_SALES", summary.getScope());
+        assertEquals(42L, summary.getSellerId());
+        assertTrue(statements.stream().allMatch(sql -> sql.contains("created_by = :sellerId")));
+    }
+
+    @Test
     void getSummaryReturnsZeroAverageAndEmptyBreakdownsWhenThereAreNoSales() {
         when(entityManager.createNativeQuery(anyString())).thenAnswer(invocation -> {
             String sql = invocation.getArgument(0);
             Query query = mock(Query.class);
-            if (sql.startsWith("SELECT COALESCE(SUM(total),0), COUNT(*) FROM sales")) {
+            if (sql.contains("COALESCE(SUM(s.total), 0)")) {
                 when(query.getSingleResult()).thenReturn(new Object[]{BigDecimal.ZERO, 0L});
-            } else if (sql.contains("FROM orders")) {
+            } else if (sql.contains("FROM orders o")) {
                 when(query.getSingleResult()).thenReturn(0L);
             } else {
                 when(query.getResultList()).thenReturn(List.of());
@@ -93,7 +101,7 @@ class DashboardDAOImplTest {
             return query;
         });
 
-        var summary = repository.getSummary();
+        var summary = repository.getSummary(today.minusDays(6), today, null, "GLOBAL");
 
         assertEquals(BigDecimal.ZERO, summary.getTodaySales());
         assertEquals(0L, summary.getTodaySalesCount());

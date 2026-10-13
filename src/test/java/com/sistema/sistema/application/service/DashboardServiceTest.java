@@ -14,6 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +32,8 @@ class DashboardServiceTest {
 
     private final DashboardRepository repository = mock(DashboardRepository.class);
     private final DashboardService service = new DashboardService(repository);
+    private final LocalDate fromDate = LocalDate.of(2026, 10, 1);
+    private final LocalDate toDate = LocalDate.of(2026, 10, 12);
 
     @AfterEach
     void clearAuthentication() {
@@ -40,33 +43,58 @@ class DashboardServiceTest {
     @Test
     void authenticatedActiveUserReceivesTheGlobalSummary() {
         authenticate(42L, "VIEW_DASHBOARD", true);
-        DashboardDTO global = DashboardDTO.builder().build();
-        when(repository.getSummary()).thenReturn(global);
+        DashboardDTO global = DashboardDTO.builder().scope("GLOBAL").build();
+        when(repository.getSummary(fromDate, toDate, null, "GLOBAL")).thenReturn(global);
 
-        assertSame(global, service.getSummary());
+        assertSame(global, service.getSummary(fromDate, toDate, "GLOBAL", null));
         assertEquals("GLOBAL", global.getScope());
-        verify(repository).getSummary();
+        verify(repository).getSummary(fromDate, toDate, null, "GLOBAL");
     }
 
     @Test
-    void endpointDoesNotAcceptParametersToChangeDashboardScope() throws Exception {
-        authenticate(42L, "VIEW_DASHBOARD", true);
-        when(repository.getSummary()).thenReturn(DashboardDTO.builder().build());
+    void userWithOwnDashboardPermissionCanOnlyQueryTheirSales() {
+        authenticate(42L, "VIEW_OWN_DASHBOARD", true);
+        DashboardDTO personal = DashboardDTO.builder()
+                .scope("MY_SALES")
+                .sellerId(42L)
+                .build();
+        when(repository.getSummary(fromDate, toDate, 42L, "MY_SALES")).thenReturn(personal);
+
+        assertSame(personal, service.getSummary(fromDate, toDate, "GLOBAL", 999L));
+        assertEquals("MY_SALES", personal.getScope());
+        assertEquals(42L, personal.getSellerId());
+        verify(repository).getSummary(fromDate, toDate, 42L, "MY_SALES");
+    }
+
+    @Test
+    void endpointAppliesThePersonalScopeForAnOwnDashboardUser() throws Exception {
+        authenticate(42L, "VIEW_OWN_DASHBOARD", true);
+        DashboardDTO personal = DashboardDTO.builder()
+                .scope("MY_SALES")
+                .sellerId(42L)
+                .build();
+        when(repository.getSummary(fromDate, toDate, 42L, "MY_SALES")).thenReturn(personal);
         var mvc = MockMvcBuilders.standaloneSetup(new DashboardController(service)).build();
 
         mvc.perform(get("/api/dashboard")
-                        .param("userId", "999")
-                        .param("scope", "PERSONAL"))
+                        .param("fromDate", fromDate.toString())
+                        .param("toDate", toDate.toString())
+                        .param("scope", "MY_SALES")
+                        .param("sellerId", "999"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.scope").value("GLOBAL"));
+                .andExpect(jsonPath("$.data.scope").value("MY_SALES"))
+                .andExpect(jsonPath("$.data.sellerId").value(42));
 
-        verify(repository).getSummary();
+        verify(repository).getSummary(fromDate, toDate, 42L, "MY_SALES");
     }
 
     @Test
     void missingSessionIsRejectedBeforeAnyQuery() {
         assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(BusinessException.class, service::getSummary).getStatus());
+                assertThrows(
+                        BusinessException.class,
+                        () -> service.getSummary(fromDate, toDate, "GLOBAL", null)
+                ).getStatus());
         verifyNoInteractions(repository);
     }
 
@@ -75,7 +103,10 @@ class DashboardServiceTest {
         authenticate(1L, "VIEW_DASHBOARD", false);
 
         assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(BusinessException.class, service::getSummary).getStatus());
+                assertThrows(
+                        BusinessException.class,
+                        () -> service.getSummary(fromDate, toDate, "GLOBAL", null)
+                ).getStatus());
         verifyNoInteractions(repository);
     }
 

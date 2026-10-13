@@ -44,6 +44,19 @@ class OrderServiceTest {
     );
 
     @Test
+    void createRejectsOrderWhenTheCashSessionWasClosed() {
+        when(cashSessionUseCase.existsOpenSession()).thenReturn(false);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.create(order(null, null))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        verifyNoInteractions(repository, productRepository, inventoryMovementUseCase);
+    }
+
+    @Test
     void updateRejectsOrdersWithNonPendingItems() {
         for (String status : List.of("PREPARING", "READY")) {
             Order current = order(status, 4L);
@@ -91,6 +104,20 @@ class OrderServiceTest {
         assertEquals("DINE_IN", item.getFulfillmentType());
         verify(productRepository).reserveStock(2L, 2L);
         verify(repository).addItem(10L, item);
+    }
+
+    @Test
+    void addItemDefaultsFulfillmentToDeliveryForDeliveryOrders() {
+        Order current = order("PENDING", 4L);
+        current.setOrderType("DELIVERY");
+        OrderItem item = item(2L, BigDecimal.ONE, "PENDING");
+        when(repository.getById(10L)).thenReturn(current);
+        when(productRepository.reserveStock(2L, 1L)).thenReturn(true);
+        when(repository.addItem(10L, item)).thenReturn(current);
+
+        service.addItem(10L, item);
+
+        assertEquals("DELIVERY", item.getFulfillmentType());
     }
 
     @Test

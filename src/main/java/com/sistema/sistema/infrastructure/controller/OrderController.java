@@ -3,6 +3,7 @@ package com.sistema.sistema.infrastructure.controller;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.request.order.OrderItemStatusRequest;
+import com.sistema.sistema.application.dto.request.order.OrderItemsCreateRequest;
 import com.sistema.sistema.application.dto.request.order.OrderItemsStatusRequest;
 import com.sistema.sistema.application.dto.request.order.OrderItemSplitRequest;
 import java.time.LocalDate;
@@ -121,6 +122,17 @@ public class OrderController {
         log.info("Adding item to order {}", id);
         Order data = orderUseCase.addItem(id, request);
         return ApiResponseFactory.success(data, "Producto agregado a la orden correctamente");
+    }
+
+    @PostMapping("/{id}/items/batch")
+    @PreAuthorize("hasAuthority('ADD_ORDER_ITEM')")
+    public ResponseEntity<ApiResponse<Order>> addItems(
+            @PathVariable Long id,
+            @Valid @RequestBody OrderItemsCreateRequest request
+    ) {
+        log.info("Adding {} items to order {}", request.getItems().size(), id);
+        Order data = orderUseCase.addItems(id, request.getItems());
+        return ApiResponseFactory.success(data, "Productos agregados a la orden correctamente");
     }
 
     @PutMapping("/{orderId}/items/{itemId}")

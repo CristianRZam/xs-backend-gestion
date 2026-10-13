@@ -12,6 +12,9 @@ public class DashboardDTO {
     @Builder.Default
     private final String scope = "GLOBAL";
     private final LocalDate summaryDate;
+    private final LocalDate fromDate;
+    private final LocalDate toDate;
+    private final Long sellerId;
     private final Long todaySalesCount;
     private final BigDecimal averageSale;
     private final BigDecimal todaySales;

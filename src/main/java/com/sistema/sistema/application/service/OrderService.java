@@ -210,6 +210,37 @@ public class OrderService implements OrderUseCase {
 
     @Override
     @Transactional
+    public Order addItems(Long orderId, List<OrderItem> items) {
+        if (orderId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El id de la orden es obligatorio.");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Debe agregar al menos un producto.");
+        }
+
+        Order current = repository.getById(orderId);
+        ensureActiveOrder(current);
+        for (OrderItem item : items) {
+            validateOrderItem(item);
+            item.setId(null);
+            item.setOrderId(orderId);
+            item.setStatus("PENDING");
+            item.setFulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), current.getOrderType()));
+        }
+
+        // La reserva y las inserciones comparten la misma transacciÃ³n: si
+        // alguno no tiene stock, no se agrega ningÃºn producto del lote.
+        reserveItems(items);
+        Order updated = current;
+        for (OrderItem item : items) {
+            updated = repository.addItem(orderId, item);
+        }
+        log.info("Added {} items to active order {}", items.size(), orderId);
+        return withIncidentDiscount(updated);
+    }
+
+    @Override
+    @Transactional
     public Order updatePendingItem(Long orderId, Long itemId, OrderItem item) {
         validateOrderItem(item);
         Order current = requireOrderItem(orderId, itemId, "PENDING");
@@ -787,9 +818,14 @@ public class OrderService implements OrderUseCase {
     }
 
     private String defaultFulfillmentType(String fulfillmentType, String orderType) {
-        return fulfillmentType == null || fulfillmentType.isBlank()
-                ? "TAKEAWAY".equals(orderType) ? "TAKEAWAY" : "DINE_IN"
-                : fulfillmentType.trim().toUpperCase();
+        if (fulfillmentType != null && !fulfillmentType.isBlank()) {
+            return fulfillmentType.trim().toUpperCase();
+        }
+        return switch (orderType == null ? "DINE_IN" : orderType.trim().toUpperCase()) {
+            case "TAKEAWAY" -> "TAKEAWAY";
+            case "DELIVERY" -> "DELIVERY";
+            default -> "DINE_IN";
+        };
     }
 
     private String normalizeOptional(String value) {

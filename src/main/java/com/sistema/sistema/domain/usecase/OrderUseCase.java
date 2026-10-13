@@ -27,6 +27,8 @@ public interface OrderUseCase {
 
     Order addItem(Long orderId, OrderItem item);
 
+    Order addItems(Long orderId, List<OrderItem> items);
+
     Order updatePendingItem(Long orderId, Long itemId, OrderItem item);
 
     Order cancelPendingItem(Long orderId, Long itemId, String comment, String stockDisposition);

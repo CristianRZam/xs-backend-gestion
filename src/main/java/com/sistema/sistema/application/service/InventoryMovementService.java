@@ -82,11 +82,12 @@ public class InventoryMovementService implements InventoryMovementUseCase {
         );
 
         if (currentStock.compareTo(reservedStock) < 0) {
+            BigDecimal availableStock = previousStock.subtract(reservedStock);
             throw new BusinessException(
                     HttpStatus.BAD_REQUEST,
-                    "El movimiento dejaría el stock por debajo de la cantidad reservada ("
-                            + reservedStock
-                            + ")."
+                    "No se puede registrar el movimiento: hay " + reservedStock
+                            + " unidad(es) reservada(s) en ordenes activas. Solo puede reducir hasta "
+                            + availableStock + " unidad(es). Libere o cancele los items de esas ordenes antes de continuar."
             );
         }
 
@@ -105,8 +106,8 @@ public class InventoryMovementService implements InventoryMovementUseCase {
 
         if (!updated) {
             throw new BusinessException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "No fue posible actualizar el stock del producto."
+                    HttpStatus.BAD_REQUEST,
+                    "El stock o las reservas cambiaron mientras se registraba el movimiento. Actualice el producto e intente nuevamente."
             );
         }
 

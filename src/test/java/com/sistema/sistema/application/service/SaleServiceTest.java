@@ -51,6 +51,25 @@ class SaleServiceTest {
     );
 
     @Test
+    void createRejectsSaleWhenTheCashSessionWasClosed() {
+        when(cashSessionUseCase.existsOpenSession()).thenReturn(false);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.create(orderSaleRequest(null))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        verifyNoInteractions(
+                saleRepository,
+                orderRepository,
+                productRepository,
+                inventoryRepository,
+                notificationUseCase
+        );
+    }
+
+    @Test
     void createRejectsChargeWhenAnActiveOrderItemIsNotServed() {
         when(cashSessionUseCase.existsOpenSession()).thenReturn(true);
         when(cashSessionUseCase.getCurrentSession()).thenReturn(session());

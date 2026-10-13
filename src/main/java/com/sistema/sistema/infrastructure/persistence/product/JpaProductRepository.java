@@ -48,6 +48,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     AND (:status IS NULL OR p.active = :status)
     AND (:minStock IS NULL OR p.totalStock >= :minStock)
     AND (:maxStock IS NULL OR p.totalStock <= :maxStock)
+    AND (:availableOnly IS NULL OR :availableOnly = false
+         OR COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) > 0)
     AND (:categories IS NULL OR p.categoryId IN :categories)
     AND (:unitMeasures IS NULL OR p.unitMeasureId IN :unitMeasures)
     AND (:valuationMethods IS NULL OR p.valuationMethodId IN :valuationMethods)
@@ -63,7 +65,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             @Param("manageVariant") Boolean manageVariant,
             @Param("status") Boolean status,
             @Param("minStock") Long minStock,
-            @Param("maxStock") Long maxStock
+            @Param("maxStock") Long maxStock,
+            @Param("availableOnly") Boolean availableOnly
     );
 
 
@@ -77,6 +80,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     AND (:status IS NULL OR p.active = :status)
     AND (:minStock IS NULL OR p.totalStock >= :minStock)
     AND (:maxStock IS NULL OR p.totalStock <= :maxStock)
+    AND (:availableOnly IS NULL OR :availableOnly = false
+         OR COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) > 0)
     AND (:categories IS NULL OR p.categoryId IN :categories)
     AND (:unitMeasures IS NULL OR p.unitMeasureId IN :unitMeasures)
     AND (:valuationMethods IS NULL OR p.valuationMethodId IN :valuationMethods)
@@ -93,6 +98,7 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             @Param("status") Boolean status,
             @Param("minStock") Long minStock,
             @Param("maxStock") Long maxStock,
+            @Param("availableOnly") Boolean availableOnly,
             Pageable pageable
     );
 
@@ -107,6 +113,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     AND (:description IS NULL OR LOWER(CAST(p.description AS string)) LIKE LOWER(CONCAT('%', CAST(:description AS string), '%')))
     AND (:minStock IS NULL OR p.totalStock >= :minStock)
     AND (:maxStock IS NULL OR p.totalStock <= :maxStock)
+    AND (:availableOnly IS NULL OR :availableOnly = false
+         OR COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) > 0)
     AND (:categories IS NULL OR p.categoryId IN :categories)
     AND (:unitMeasures IS NULL OR p.unitMeasureId IN :unitMeasures)
     AND (:valuationMethods IS NULL OR p.valuationMethodId IN :valuationMethods)
@@ -120,7 +128,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             @Param("valuationMethods") List<Integer> valuationMethods,
             @Param("status") Boolean status,
             @Param("minStock") Long minStock,
-            @Param("maxStock") Long maxStock
+            @Param("maxStock") Long maxStock,
+            @Param("availableOnly") Boolean availableOnly
     );
 
     @Query("""
@@ -132,6 +141,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
     AND (:description IS NULL OR LOWER(CAST(p.description AS string)) LIKE LOWER(CONCAT('%', CAST(:description AS string), '%')))
     AND (:minStock IS NULL OR p.totalStock >= :minStock)
     AND (:maxStock IS NULL OR p.totalStock <= :maxStock)
+    AND (:availableOnly IS NULL OR :availableOnly = false
+         OR COALESCE(p.totalStock, 0) - COALESCE(p.reservedStock, 0) > 0)
     AND (:categories IS NULL OR p.categoryId IN :categories)
     AND (:unitMeasures IS NULL OR p.unitMeasureId IN :unitMeasures)
     AND (:valuationMethods IS NULL OR p.valuationMethodId IN :valuationMethods)
@@ -146,7 +157,8 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             @Param("valuationMethods") List<Integer> valuationMethods,
             @Param("status") Boolean status,
             @Param("minStock") Long minStock,
-            @Param("maxStock") Long maxStock
+            @Param("maxStock") Long maxStock,
+            @Param("availableOnly") Boolean availableOnly
     );
 
 
@@ -202,6 +214,22 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
             AND COALESCE(p.reservedStock, 0) >= :quantity
             """)
     int consumeReservedStock(@Param("productId") Long productId, @Param("quantity") Long quantity);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE ProductEntity p
+            SET p.totalStock = :stock,
+                p.modifiedBy = :modifiedBy,
+                p.modifiedAt = CURRENT_TIMESTAMP
+            WHERE p.id = :productId
+            AND p.deletedAt IS NULL
+            AND COALESCE(p.reservedStock, 0) <= :stock
+            """)
+    int updateStockKeepingReservations(
+            @Param("productId") Long productId,
+            @Param("stock") Long stock,
+            @Param("modifiedBy") Long modifiedBy
+    );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""

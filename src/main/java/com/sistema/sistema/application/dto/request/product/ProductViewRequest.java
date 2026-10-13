@@ -20,6 +20,7 @@ public class ProductViewRequest {
     private Boolean manageVariant;
     private Integer minimumStock;
     private Integer maximumStock;
+    private Boolean availableOnly;
     private Boolean status;
     private int page = 0;
     private int size = 5;

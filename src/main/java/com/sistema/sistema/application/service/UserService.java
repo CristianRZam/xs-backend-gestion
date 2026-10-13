@@ -15,6 +15,7 @@ import com.sistema.sistema.domain.repository.*;
 import com.sistema.sistema.domain.usecase.UserUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
 import com.sistema.sistema.infrastructure.persistence.user.UserMapper;
+import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -372,6 +373,13 @@ public class UserService implements UserUseCase {
 
     @Override
     public Boolean updateStatus(Long id) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        if (id != null && id.equals(currentUserId)) {
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "No puedes desactivar tu propia cuenta mientras tienes una sesión activa."
+            );
+        }
         return repository.updateStatus(id);
     }
 }

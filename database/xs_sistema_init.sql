@@ -1199,6 +1199,7 @@ WHERE u.username = 'crodriguezz' AND r.name = 'SUPER_ADMIN';
 INSERT INTO permissions (name, description, created_by, module) VALUES
 -- Dashboard
 ('VIEW_DASHBOARD', 'Permiso para ver el dashboard', 1, 'Inicio'),
+('VIEW_OWN_DASHBOARD', 'Permiso para consultar únicamente las ventas propias', 1, 'Inicio'),
 ('VIEW_REPORT', 'Permiso para consultar y descargar reportes', 1, 'Inicio'),
 ('VIEW_NOTIFICATION', 'Permiso para ver y gestionar notificaciones', 1, 'Inicio'),
 
