@@ -159,12 +159,12 @@ class OrderServiceTest {
         existing.setId(100L);
         Order current = order("PENDING", 4L, existing);
         when(repository.getById(10L)).thenReturn(current);
-        when(repository.splitPendingItem(eq(10L), eq(100L), eq(BigDecimal.ONE), isNull())).thenReturn(current);
+        when(repository.splitPendingItem(eq(10L), eq(100L), eq(BigDecimal.ONE), eq("DINE_IN"), isNull())).thenReturn(current);
 
-        Order result = service.splitPendingItem(10L, 100L, BigDecimal.ONE);
+        Order result = service.splitPendingItem(10L, 100L, BigDecimal.ONE, "DINE_IN");
 
         assertEquals(current, result);
-        verify(repository).splitPendingItem(eq(10L), eq(100L), eq(BigDecimal.ONE), isNull());
+        verify(repository).splitPendingItem(eq(10L), eq(100L), eq(BigDecimal.ONE), eq("DINE_IN"), isNull());
         verifyNoInteractions(productRepository);
     }
 

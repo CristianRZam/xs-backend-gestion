@@ -30,7 +30,7 @@ public interface OrderRepository {
 
     Order cancelPendingItem(Long orderId, Long itemId, String comment, Long changedBy);
 
-    Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, Long changedBy);
+    Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, String fulfillmentType, Long changedBy);
 
     Order updateItemStatus(Long orderId, Long itemId, String status, String comment, Long changedBy);
     Order cancelServedItem(Long orderId, Long itemId, String comment, Long changedBy);

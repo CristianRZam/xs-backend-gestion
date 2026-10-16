@@ -311,7 +311,7 @@ public class OrderService implements OrderUseCase {
 
     @Override
     @Transactional
-    public Order splitPendingItem(Long orderId, Long itemId, BigDecimal quantity) {
+    public Order splitPendingItem(Long orderId, Long itemId, BigDecimal quantity, String fulfillmentType) {
         ensureItemIsNotIncidentLocked(orderId, itemId);
         Order current = requireOrderItem(orderId, itemId, "PENDING");
         OrderItem item = current.getItems().stream().filter(value -> itemId.equals(value.getId())).findFirst().orElseThrow();
@@ -319,8 +319,12 @@ public class OrderService implements OrderUseCase {
         if (quantity.compareTo(item.getQuantity()) >= 0) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "La cantidad a dividir debe ser menor que la cantidad pendiente.");
         }
-        log.info("Splitting pending item {} in order {} by quantity {}", itemId, orderId, quantity);
-        return withIncidentDiscount(repository.splitPendingItem(orderId, itemId, quantity, SecurityUtil.getCurrentUserId()));
+        String splitFulfillmentType = defaultFulfillmentType(fulfillmentType, item.getFulfillmentType());
+        if (!Set.of("DINE_IN", "TAKEAWAY", "DELIVERY").contains(splitFulfillmentType)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El tipo de entrega no es válido.");
+        }
+        log.info("Splitting pending item {} in order {} by quantity {} as {}", itemId, orderId, quantity, splitFulfillmentType);
+        return withIncidentDiscount(repository.splitPendingItem(orderId, itemId, quantity, splitFulfillmentType, SecurityUtil.getCurrentUserId()));
     }
 
     @Override

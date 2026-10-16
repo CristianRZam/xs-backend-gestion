@@ -154,7 +154,7 @@ public class OrderDAOImpl implements OrderRepository {
     }
 
     @Override
-    public Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, Long changedBy) {
+    public Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, String fulfillmentType, Long changedBy) {
         OrderEntity entity = findOrderEntity(orderId);
         OrderItemEntity source = findItemEntity(entity, itemId);
         LocalDateTime now = LocalDateTime.now().withNano(0);
@@ -167,7 +167,7 @@ public class OrderDAOImpl implements OrderRepository {
                 .quantity(quantity)
                 .unitPrice(source.getUnitPrice())
                 .notes(source.getNotes())
-                .fulfillmentType(source.getFulfillmentType())
+                .fulfillmentType(fulfillmentType)
                 .status("PENDING")
                 .createdAt(now)
                 .build();

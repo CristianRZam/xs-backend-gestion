@@ -35,7 +35,7 @@ public interface OrderUseCase {
 
     Order cancelPendingItem(Long orderId, Long itemId, String comment, String stockDisposition);
 
-    Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity);
+    Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, String fulfillmentType);
 
     Order updateItemStatus(Long orderId, Long itemId, String status, String comment);
     Order updateItemsStatus(Long orderId, List<Long> itemIds, String status, String comment);

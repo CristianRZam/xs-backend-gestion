@@ -174,7 +174,7 @@ public class OrderController {
     ) {
         log.info("Splitting item {} in order {}", itemId, orderId);
         return ApiResponseFactory.success(
-                orderUseCase.splitPendingItem(orderId, itemId, request.getQuantity()),
+                orderUseCase.splitPendingItem(orderId, itemId, request.getQuantity(), request.getFulfillmentType()),
                 "Producto dividido correctamente"
         );
     }
