@@ -2,6 +2,7 @@ package com.sistema.sistema.domain.repository;
 
 import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
+import com.sistema.sistema.application.dto.response.sale.SaleListItemDTO;
 import java.math.BigDecimal;
 import java.util.List;
 import com.sistema.sistema.application.dto.response.sale.CashSessionSalesSummaryDTO;
@@ -13,7 +14,7 @@ public interface SaleRepository {
                    BigDecimal subtotal, BigDecimal total);
     SaleDTO getById(Long id);
     List<SaleDTO> getAll();
-    PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate);
+    PageResponseDTO<SaleListItemDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, Long productId);
     boolean existsByOrderId(Long orderId);
     boolean isOriginalCashSessionOpen(Long saleId);
     SaleDTO cancel(Long saleId, String reason);

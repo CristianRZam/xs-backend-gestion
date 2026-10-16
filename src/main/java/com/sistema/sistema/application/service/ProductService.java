@@ -8,6 +8,7 @@ import com.sistema.sistema.application.dto.response.parameter.ParameterDto;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.application.dto.response.product.ProductFormResponse;
 import com.sistema.sistema.application.dto.response.product.ProductViewResponse;
+import com.sistema.sistema.application.dto.response.product.ProductLookupDTO;
 import com.sistema.sistema.application.dto.response.productimage.ProductImageDTO;
 import com.sistema.sistema.application.dto.response.productimage.StoredFileDTO;
 import com.sistema.sistema.domain.model.Product;
@@ -58,6 +59,11 @@ public class ProductService implements ProductUseCase {
         response.setUnitMeasures(unitMeasures);
         response.setValuationMethods(valuationMethods);
         return response;
+    }
+
+    @Override
+    public List<ProductLookupDTO> lookup(String query, int limit) {
+        return repository.lookup(query, Math.min(Math.max(limit, 1), 15));
     }
 
     private List<ProductDTO> withMainImageUrls(List<ProductDTO> products) {

@@ -1,6 +1,7 @@
 package com.sistema.sistema.infrastructure.controller;
 
 import com.sistema.sistema.application.dto.request.inventorycount.InventoryCountCloseRequest;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.domain.usecase.InventoryCountUseCase;
 import com.sistema.sistema.infrastructure.persistence.inventorycount.InventoryCountSessionEntity;
@@ -8,7 +9,6 @@ import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -35,10 +35,11 @@ public class InventoryCountController {
     }
     
     @GetMapping 
-    public ResponseEntity<ApiResponse<List<InventoryCountSessionEntity>>> history() { 
-        
-        return ApiResponseFactory.success(service.history(), "Historial obtenido correctamente"); 
-    
+    public ResponseEntity<ApiResponse<PageResponseDTO<InventoryCountSessionEntity>>> history(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int limit
+    ) {
+        return ApiResponseFactory.success(service.history(page, limit), "Historial obtenido correctamente");
     }
     
     @GetMapping("/{id}") 
@@ -61,8 +62,8 @@ public class InventoryCountController {
     public ResponseEntity<ApiResponse<InventoryCountSessionEntity>> close(@PathVariable Long id, @RequestBody InventoryCountCloseRequest request) { 
         
         InventoryCountSessionEntity data = service.close(id, request);
-        log.info("Conteo de inventario finalizado: countId={}", id);
-        return ApiResponseFactory.success(data, "Conteo procesado correctamente"); 
+        log.info("Conteo de inventario finalizado: countId={}, nextCountId={}", id, data.getId());
+        return ApiResponseFactory.success(data, "Conteo finalizado. Se inició el siguiente conteo automáticamente.");
         
     }
 

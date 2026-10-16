@@ -45,12 +45,13 @@ class OperationalAlertServiceTest {
     );
 
     @Test
-    void evaluatesAndAssignsAllOperationalAlertsToActiveSuperAdmins() {
+    void evaluatesAndAssignsAllOperationalAlertsToActiveNotificationUsers() {
         ReflectionTestUtils.setField(service, "lowStockThreshold", 5L);
         ReflectionTestUtils.setField(service, "noMovementDays", 30L);
         ReflectionTestUtils.setField(service, "openCashHours", 12L);
         ReflectionTestUtils.setField(service, "pendingCountHours", 12L);
-        when(users.findActiveSuperAdmins()).thenReturn(List.of(UserEntity.builder().id(9L).build()));
+        when(users.findActiveUsersWithPermission("VIEW_NOTIFICATION"))
+                .thenReturn(List.of(UserEntity.builder().id(9L).build()));
         when(products.findByActiveTrueAndDeletedAtIsNullAndTotalStockLessThanEqualOrderByNameAsc(5L))
                 .thenReturn(List.of(ProductEntity.builder().id(1L).name("Café").code("CAF-01").totalStock(2L).build()));
         when(products.findActiveProductsWithoutMovementSince(any(), any()))
@@ -66,7 +67,7 @@ class OperationalAlertServiceTest {
 
         ArgumentCaptor<NotificationCreateRequest> requests = ArgumentCaptor.forClass(NotificationCreateRequest.class);
         verify(notifications, times(4)).create(requests.capture(), any());
-        verify(users).findActiveSuperAdmins();
+        verify(users).findActiveUsersWithPermission("VIEW_NOTIFICATION");
         assertEquals(List.of("LOW_STOCK", "NO_MOVEMENT", "CASH_SESSION_OPEN", "INVENTORY_COUNT_PENDING"),
                 requests.getAllValues().stream().map(NotificationCreateRequest::getType).toList());
         assertTrue(requests.getAllValues().stream()

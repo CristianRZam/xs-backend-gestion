@@ -12,9 +12,8 @@ import java.time.LocalDateTime;
 import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
+import com.sistema.sistema.application.dto.response.order.OrderListItemDTO;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
@@ -217,7 +216,7 @@ public class OrderDAOImpl implements OrderRepository {
         if (!itemBelongsToOrder) {
             throw new EntityNotFoundException("Producto de orden no encontrado con id: " + itemId);
         }
-        return statusHistoryJpa.findByOrderItemIdOrderByChangedAtAscIdAsc(itemId).stream()
+        return statusHistoryJpa.findHistoryWithActorByOrderItemId(itemId).stream()
                 .map(this::toDomainHistory)
                 .toList();
     }
@@ -282,35 +281,70 @@ public class OrderDAOImpl implements OrderRepository {
         /*
          * Reemplazamos los items actuales por los nuevos.
          */
-        entity.getItems().clear();
+        List<OrderItemEntity> newItems = new ArrayList<>();
+        List<OrderItem> requestedItems = order.getItems() == null ? List.of() : order.getItems();
 
-        if (order.getItems() != null) {
+        for (OrderItemEntity existing : entity.getItems()) {
+            OrderItem requested = requestedItems.stream()
+                    .filter(item -> existing.getId().equals(item.getId()))
+                    .findFirst()
+                    .orElse(null);
 
-            order.getItems().forEach(item -> {
+            if (requested == null) {
+                if (!"CANCELLED".equals(existing.getStatus())) {
+                    String previousStatus = existing.getStatus();
+                    existing.setStatus("CANCELLED");
+                    existing.setModifiedBy(currentUserId);
+                    existing.setModifiedAt(now);
+                    saveStatusHistory(
+                            existing.getId(),
+                            previousStatus,
+                            "CANCELLED",
+                            "Cancelado al editar la orden",
+                            currentUserId,
+                            now
+                    );
+                }
+                continue;
+            }
 
-                OrderItemEntity itemEntity =
-                        OrderItemEntity.builder()
-                                .id(null)
-                                .order(entity)
-                                .productId(item.getProductId())
-                                .quantity(item.getQuantity())
-                                .unitPrice(item.getUnitPrice())
-                                .notes(item.getNotes())
-                                .fulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), entity.getOrderType()))
-                                .status(defaultItemStatus(item.getStatus()))
-                                .createdAt(now)
-                                .modifiedBy(currentUserId)
-                                .modifiedAt(now)
-                                .build();
+            existing.setProductId(requested.getProductId());
+            existing.setQuantity(requested.getQuantity());
+            existing.setUnitPrice(requested.getUnitPrice());
+            existing.setNotes(requested.getNotes());
+            existing.setFulfillmentType(defaultFulfillmentType(requested.getFulfillmentType(), entity.getOrderType()));
+            existing.setModifiedBy(currentUserId);
+            existing.setModifiedAt(now);
+        }
 
-                entity.getItems().add(itemEntity);
-            });
+        for (OrderItem requested : requestedItems) {
+            if (requested.getId() != null) continue;
+            OrderItemEntity itemEntity = OrderItemEntity.builder()
+                    .order(entity)
+                    .productId(requested.getProductId())
+                    .quantity(requested.getQuantity())
+                    .unitPrice(requested.getUnitPrice())
+                    .notes(requested.getNotes())
+                    .fulfillmentType(defaultFulfillmentType(requested.getFulfillmentType(), entity.getOrderType()))
+                    .status("PENDING")
+                    .createdAt(now)
+                    .build();
+            // El historial exige el id del ítem. Al editar una orden, el
+            // save de la orden puede hacer merge y dejar esta instancia
+            // transitoria sin el id generado; por eso persistimos el ítem
+            // explícitamente antes de registrar su estado inicial.
+            OrderItemEntity persistedItem = itemJpa.saveAndFlush(itemEntity);
+            entity.getItems().add(persistedItem);
+            newItems.add(persistedItem);
         }
 
         entity.setModifiedBy(currentUserId);
         entity.setModifiedAt(now);
 
-        OrderEntity saved = jpa.save(entity);
+        OrderEntity saved = jpa.saveAndFlush(entity);
+        newItems.forEach(item -> saveStatusHistory(
+                item.getId(), null, "PENDING", "Producto agregado al editar la orden", currentUserId, now
+        ));
 
         return mapper.toDomain(saved);
     }
@@ -335,9 +369,28 @@ public class OrderDAOImpl implements OrderRepository {
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
 
+        LocalDateTime changedAt = LocalDateTime.now();
+        if ("CANCELLED".equals(status)) {
+            for (OrderItemEntity item : entity.getItems()) {
+                if ("CANCELLED".equals(item.getStatus())) continue;
+                String previousStatus = item.getStatus();
+                item.setStatus("CANCELLED");
+                item.setModifiedBy(currentUserId);
+                item.setModifiedAt(changedAt);
+                saveStatusHistory(
+                        item.getId(),
+                        previousStatus,
+                        "CANCELLED",
+                        "Cancelado junto con la orden",
+                        currentUserId,
+                        changedAt
+                );
+            }
+        }
+
         entity.setStatus(status);
         entity.setModifiedBy(currentUserId);
-        entity.setModifiedAt(LocalDateTime.now());
+        entity.setModifiedAt(changedAt);
 
         OrderEntity saved = jpa.save(entity);
 
@@ -367,40 +420,58 @@ public class OrderDAOImpl implements OrderRepository {
         jpa.save(entity);
     }
     @Override
-    public PageResponseDTO<Order> getPage(
+    public PageResponseDTO<OrderListItemDTO> getPage(
             int page,
             int size,
             LocalDate fromDate,
             LocalDate toDate,
             String status,
-            String search
+            String search,
+            Long productId
     ) {
         LocalDateTime from = fromDate == null ? null : fromDate.atStartOfDay();
         LocalDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
         String requestedStatus = normalize(status);
         String requestedSearch = normalize(search);
-        PageRequest pageable = PageRequest.of(
+        // The native list query owns the stable created_at/id ordering.
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<OrderListProjection> result = jpa.findListPage(
+                from,
+                to,
+                requestedStatus == null ? null : requestedStatus.toUpperCase(),
+                requestedSearch,
+                productId,
+                pageable
+        );
+        return new PageResponseDTO<>(
+                result.getContent().stream().map(this::toListItem).toList(),
+                result.getTotalElements(),
                 page,
                 size,
-                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+                result.hasNext()
         );
-        Specification<OrderEntity> specification = (root, query, criteriaBuilder) -> {
-            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
-            predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
-            if (from != null) predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
-            if (to != null) predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), to));
-            if (requestedStatus != null) predicates.add(criteriaBuilder.equal(root.get("status"), requestedStatus.toUpperCase()));
-            if (requestedSearch != null) {
-                String pattern = "%" + requestedSearch.toLowerCase() + "%";
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("orderNumber")), pattern),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("tableNumber")), pattern)
-                ));
-            }
-            return criteriaBuilder.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
-        };
-        Page<OrderEntity> result = jpa.findAll(specification, pageable);
-        return new PageResponseDTO<>(mapper.toDomainList(result.getContent()), result.getTotalElements(), page, size, result.hasNext());
+    }
+
+    private OrderListItemDTO toListItem(OrderListProjection row) {
+        return OrderListItemDTO.builder()
+                .id(row.getId())
+                .orderNumber(row.getOrderNumber())
+                .orderType(row.getOrderType())
+                .tableNumber(row.getTableNumber())
+                .status(row.getStatus())
+                .hasNotes(Boolean.TRUE.equals(row.getHasNotes()))
+                .createdAt(row.getCreatedAt())
+                .createdByName(row.getCreatedByName())
+                .modifiedAt(row.getModifiedAt())
+                .activeItemCount(row.getActiveItemCount())
+                .activeUnitCount(row.getActiveUnitCount())
+                .totalAmount(row.getTotalAmount())
+                .pendingItemCount(row.getPendingItemCount())
+                .preparingItemCount(row.getPreparingItemCount())
+                .readyItemCount(row.getReadyItemCount())
+                .servedItemCount(row.getServedItemCount())
+                .cancelledItemCount(row.getCancelledItemCount())
+                .build();
     }
 
     @Override
@@ -482,15 +553,16 @@ public class OrderDAOImpl implements OrderRepository {
         return "PREPARING";
     }
 
-    private OrderItemStatusHistory toDomainHistory(OrderItemStatusHistoryEntity entity) {
+    private OrderItemStatusHistory toDomainHistory(OrderItemStatusHistoryProjection projection) {
         return OrderItemStatusHistory.builder()
-                .id(entity.getId())
-                .orderItemId(entity.getOrderItemId())
-                .previousStatus(entity.getPreviousStatus())
-                .newStatus(entity.getNewStatus())
-                .comment(entity.getComment())
-                .changedBy(entity.getChangedBy())
-                .changedAt(entity.getChangedAt())
+                .id(projection.getId())
+                .orderItemId(projection.getOrderItemId())
+                .previousStatus(projection.getPreviousStatus())
+                .newStatus(projection.getNewStatus())
+                .comment(projection.getComment())
+                .changedBy(projection.getChangedBy())
+                .changedByName(projection.getChangedByName())
+                .changedAt(projection.getChangedAt())
                 .build();
     }
 

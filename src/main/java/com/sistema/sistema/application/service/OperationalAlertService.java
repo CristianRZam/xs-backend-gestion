@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,9 +21,11 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class OperationalAlertService {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final String VIEW_NOTIFICATION = "VIEW_NOTIFICATION";
 
     private final JpaProductRepository products;
     private final JpaCashSessionRepository cashSessions;
@@ -55,14 +58,18 @@ public class OperationalAlertService {
             initialDelayString = "${app.notifications.operational-check-initial-delay-ms:30000}")
     @Transactional
     public void evaluate() {
-        List<Long> superAdminIds = users.findActiveSuperAdmins().stream().map(user -> user.getId()).toList();
-        if (superAdminIds.isEmpty()) return;
+        List<Long> recipientIds = users.findActiveUsersWithPermission(VIEW_NOTIFICATION)
+                .stream().map(user -> user.getId()).toList();
+        if (recipientIds.isEmpty()) {
+            log.debug("No hay usuarios activos con {} para recibir alertas operativas.", VIEW_NOTIFICATION);
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
         String dayKey = LocalDate.now().toString();
-        createLowStockAlerts(superAdminIds, dayKey);
-        createNoMovementAlerts(superAdminIds, now, dayKey);
-        createOpenCashAlerts(superAdminIds, now, dayKey);
-        createPendingCountAlerts(superAdminIds, now, dayKey);
+        createLowStockAlerts(recipientIds, dayKey);
+        createNoMovementAlerts(recipientIds, now, dayKey);
+        createOpenCashAlerts(recipientIds, now, dayKey);
+        createPendingCountAlerts(recipientIds, now, dayKey);
     }
 
     private void createLowStockAlerts(List<Long> recipientIds, String dayKey) {

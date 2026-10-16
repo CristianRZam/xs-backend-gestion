@@ -8,6 +8,7 @@ import com.sistema.sistema.infrastructure.persistence.inventorycount.JpaInventor
 import com.sistema.sistema.infrastructure.persistence.inventorycount.JpaInventoryCountSessionRepository;
 import com.sistema.sistema.infrastructure.persistence.product.JpaProductRepository;
 import com.sistema.sistema.infrastructure.persistence.product.ProductEntity;
+import com.sistema.sistema.infrastructure.persistence.user.JpaUserRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,8 +24,9 @@ class InventoryCountServiceTest {
     private final JpaInventoryCountSessionRepository sessions = mock(JpaInventoryCountSessionRepository.class);
     private final JpaInventoryCountItemRepository items = mock(JpaInventoryCountItemRepository.class);
     private final JpaProductRepository products = mock(JpaProductRepository.class);
+    private final JpaUserRepository users = mock(JpaUserRepository.class);
     private final InventoryMovementService movements = mock(InventoryMovementService.class);
-    private final InventoryCountService service = new InventoryCountService(sessions, items, products, movements);
+    private final InventoryCountService service = new InventoryCountService(sessions, items, products, users, movements);
 
     @Test
     void reviewUsesCurrentProductStockWhenValidating() {
@@ -80,6 +82,36 @@ class InventoryCountServiceTest {
                 () -> service.review(7L, request(item(1L, 5L), item(1L, 5L))));
 
         assertEquals("Un producto no puede contarse dos veces.", exception.getMessage());
+    }
+
+    @Test
+    void closeStartsTheNextCountInTheSameOperation() {
+        var closingSession = InventoryCountSessionEntity.builder().id(7L).status("OPEN").build();
+        var closingItem = countItem(7L, 1L, 5L);
+        var product = ProductEntity.builder().id(1L).name("Producto").code("P1").totalStock(5L).build();
+        when(sessions.findById(7L)).thenReturn(Optional.of(closingSession));
+        when(items.findBySessionIdOrderById(7L)).thenReturn(List.of(closingItem));
+        when(products.findById(1L)).thenReturn(Optional.of(product));
+        when(products.findByActiveTrueAndDeletedAtIsNullOrderByNameAsc()).thenReturn(List.of(product));
+        when(sessions.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sessions.save(any())).thenAnswer(invocation -> {
+            var saved = invocation.getArgument(0, InventoryCountSessionEntity.class);
+            saved.setId(8L);
+            return saved;
+        });
+
+        var closeRequest = request(item(1L, 5L));
+        closeRequest.setClosingComment("  Conteo de turno finalizado.  ");
+
+        var nextSession = service.close(7L, closeRequest);
+
+        assertEquals("CLOSED", closingSession.getStatus());
+        assertEquals("Conteo de turno finalizado.", closingSession.getClosingComment());
+        assertEquals("OPEN", nextSession.getStatus());
+        assertEquals(8L, nextSession.getId());
+        assertEquals("Conteo iniciado automáticamente por el sistema.", nextSession.getOpeningComment());
+        verify(sessions).saveAndFlush(closingSession);
+        verify(items).saveAll(any());
     }
 
     private InventoryCountItemEntity countItem(Long sessionId, Long productId, Long openingStock) {

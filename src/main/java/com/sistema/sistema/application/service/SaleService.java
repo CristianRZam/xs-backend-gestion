@@ -5,6 +5,7 @@ import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
 import com.sistema.sistema.application.dto.request.sale.SaleCancellationRequest;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
+import com.sistema.sistema.application.dto.response.sale.SaleListItemDTO;
 import com.sistema.sistema.domain.model.CashSession;
 import com.sistema.sistema.domain.model.Order;
 import com.sistema.sistema.domain.model.OrderItem;
@@ -122,7 +123,7 @@ public class SaleService implements SaleUseCase {
 
     @Override public SaleDTO getById(Long id) { return saleRepository.getById(id); }
     @Override public List<SaleDTO> getAll() { return saleRepository.getAll(); }
-    @Override public PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) { return saleRepository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate); }
+    @Override public PageResponseDTO<SaleListItemDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, Long productId) { return saleRepository.getPage(Math.max(page, 0), Math.min(Math.max(size, 1), 100), fromDate, toDate, status, productId); }
     @Override public CashSessionSalesSummaryDTO getCashSessionSummary(Long cashSessionId) {
         if (cashSessionId == null) throw new BusinessException(HttpStatus.BAD_REQUEST, "La sesión de caja es obligatoria.");
         return saleRepository.getCashSessionSummary(cashSessionId);
@@ -223,7 +224,7 @@ public class SaleService implements SaleUseCase {
     private void validateMatchesOrder(Order order, List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> requested = quantitiesByProduct(items);
         Map<Long, Long> ordered = new HashMap<>();
-        for (OrderItem item : activeItems(order)) ordered.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
+        for (OrderItem item : chargeableItems(order)) ordered.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
         if (!requested.equals(ordered)) throw new BusinessException(HttpStatus.BAD_REQUEST, "Los productos y cantidades de la venta deben coincidir con la orden.");
 
         Map<Long, BigDecimal> requestedAmounts = new HashMap<>();
@@ -231,7 +232,7 @@ public class SaleService implements SaleUseCase {
             requestedAmounts.merge(item.getProductId(), item.getUnitPrice().multiply(item.getQuantity()), BigDecimal::add);
         }
         Map<Long, BigDecimal> orderedAmounts = new HashMap<>();
-        for (OrderItem item : activeItems(order)) {
+        for (OrderItem item : chargeableItems(order)) {
             orderedAmounts.merge(item.getProductId(), item.getUnitPrice().multiply(item.getQuantity()), BigDecimal::add);
         }
         boolean pricesMatch = requestedAmounts.size() == orderedAmounts.size()
@@ -264,6 +265,14 @@ public class SaleService implements SaleUseCase {
         return order.getItems().stream()
                 .filter(item -> !"CANCELLED".equals(item.getStatus()))
                 .toList();
+    }
+    private List<OrderItem> chargeableItems(Order order) {
+        java.util.Set<Long> nonChargeableIds = incidentRepository.findByOrderId(order.getId()).stream()
+                .filter(incident -> "CANCEL_NO_CHARGE".equals(incident.getResolution())
+                        && isApprovedIncident(incident.getStatus()))
+                .map(OrderItemIncident::getOrderItemId)
+                .collect(java.util.stream.Collectors.toSet());
+        return activeItems(order).stream().filter(item -> !nonChargeableIds.contains(item.getId())).toList();
     }
     private Map<Long, Long> quantitiesByProduct(List<SaleCreateRequest.SaleItemRequest> items) {
         Map<Long, Long> result = new HashMap<>();

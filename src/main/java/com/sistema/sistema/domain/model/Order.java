@@ -25,6 +25,8 @@ public class Order {
     private String notes;
     private List<OrderItem> items = new ArrayList<>();
     private BigDecimal incidentDiscount = BigDecimal.ZERO;
+    private List<Long> nonChargeableItemIds = new ArrayList<>();
+    private List<Long> incidentLockedItemIds = new ArrayList<>();
     private Long createdBy;
     private LocalDateTime createdAt;
     private Long modifiedBy;

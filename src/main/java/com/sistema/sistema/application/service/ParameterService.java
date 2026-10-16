@@ -144,10 +144,6 @@ public class ParameterService implements ParameterUseCase {
                 // Caso: no envió archivo nuevo → mantener ruta anterior
                 parameter.setName(existing.getName());
             }
-
-        } else {
-            // Si no es tipo 1, no tocar la ruta de archivo
-            parameter.setName(existing.getName());
         }
 
         return repository.update(parameter);

@@ -49,8 +49,12 @@ public class CashSessionDAOImpl implements CashSessionRepository {
         entity.setCreatedAt(LocalDateTime.now());
 
         CashSessionEntity saved = jpa.save(entity);
-
-        return mapper.toDomain(saved);
+        CashSession session = mapper.toDomain(saved);
+        // La respuesta de apertura se pinta inmediatamente en Flutter; debe
+        // contener el mismo nombre de usuario que una sesión recargada.
+        jpa.findUserNamesBySessionId(saved.getId())
+                .ifPresent(names -> mapper.addUserNames(session, names));
+        return session;
     }
 
     // ==========================================================
@@ -123,7 +127,10 @@ public class CashSessionDAOImpl implements CashSessionRepository {
 
         CashSessionEntity saved = jpa.save(entity);
 
-        return mapper.toDomain(saved);
+        CashSession session = mapper.toDomain(saved);
+        jpa.findUserNamesBySessionId(saved.getId())
+                .ifPresent(names -> mapper.addUserNames(session, names));
+        return session;
     }
 
     // ==========================================================
@@ -136,7 +143,13 @@ public class CashSessionDAOImpl implements CashSessionRepository {
         int safeSize = Math.max(1, Math.min(size, 100));
         var result = jpa.findByDeletedAtIsNullOrderByIdDesc(
                 PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "id")));
-        return new PageResponseDTO<>(mapper.toDomainList(result.getContent()),
+        List<CashSession> sessions = result.getContent().stream().map(entity -> {
+            CashSession session = mapper.toDomain(entity);
+            jpa.findUserNamesBySessionId(entity.getId())
+                    .ifPresent(names -> mapper.addUserNames(session, names));
+            return session;
+        }).toList();
+        return new PageResponseDTO<>(sessions,
                 result.getTotalElements(), safePage, safeSize, result.hasNext());
     }
 

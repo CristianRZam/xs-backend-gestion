@@ -1,6 +1,7 @@
 package com.sistema.sistema.application.service;
 
 import com.sistema.sistema.application.dto.request.inventorycount.InventoryCountCloseRequest;
+import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.request.inventorymovement.InventoryMovementCreateRequest;
 import com.sistema.sistema.domain.usecase.InventoryCountUseCase;
 import com.sistema.sistema.infrastructure.exception.BusinessException;
@@ -9,8 +10,10 @@ import com.sistema.sistema.infrastructure.persistence.inventorycount.InventoryCo
 import com.sistema.sistema.infrastructure.persistence.inventorycount.JpaInventoryCountItemRepository;
 import com.sistema.sistema.infrastructure.persistence.inventorycount.JpaInventoryCountSessionRepository;
 import com.sistema.sistema.infrastructure.persistence.product.JpaProductRepository;
+import com.sistema.sistema.infrastructure.persistence.user.JpaUserRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,22 +28,26 @@ import java.util.Map;
 @Service
 public class InventoryCountService implements InventoryCountUseCase {
     private static final String DOCUMENT_NUMBER_PREFIX = "CNT-";
+    private static final String SYSTEM_OPENING_COMMENT = "Conteo iniciado automáticamente por el sistema.";
     private static final DateTimeFormatter DOCUMENT_NUMBER_FORMAT =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private final JpaInventoryCountSessionRepository sessions;
     private final JpaInventoryCountItemRepository items;
     private final JpaProductRepository products;
+    private final JpaUserRepository users;
     private final InventoryMovementService movements;
 
     public InventoryCountService(
             JpaInventoryCountSessionRepository sessions,
             JpaInventoryCountItemRepository items,
             JpaProductRepository products,
+            JpaUserRepository users,
             InventoryMovementService movements
     ) {
         this.sessions = sessions;
         this.items = items;
         this.products = products;
+        this.users = users;
         this.movements = movements;
     }
 
@@ -54,6 +61,10 @@ public class InventoryCountService implements InventoryCountUseCase {
                     "Existe un conteo pendiente. Debe finalizar o cancelar el último conteo antes de iniciar uno nuevo.");
         }
 
+        return createSession();
+    }
+
+    private InventoryCountSessionEntity createSession() {
         var productList = products.findByActiveTrueAndDeletedAtIsNullOrderByNameAsc();
         LocalDateTime openedAt = nextCountTime(LocalDateTime.now().withNano(0));
         var session = sessions.save(InventoryCountSessionEntity.builder()
@@ -67,7 +78,7 @@ public class InventoryCountService implements InventoryCountUseCase {
                 .matchedProducts(0L)
                 .shortageProducts(0L)
                 .surplusProducts(0L)
-                .openingComment(comment)
+                .openingComment(SYSTEM_OPENING_COMMENT)
                 .build());
 
         items.saveAll(productList.stream()
@@ -87,8 +98,21 @@ public class InventoryCountService implements InventoryCountUseCase {
     public Map<String, Object> detail(Long id) {
         var session = findSession(id);
         var rows = items.findBySessionIdOrderById(id);
+        var sessionData = new HashMap<String, Object>();
+        sessionData.put("id", session.getId());
+        sessionData.put("countNumber", session.getCountNumber());
+        sessionData.put("businessDate", session.getBusinessDate());
+        sessionData.put("status", session.getStatus());
+        sessionData.put("openedBy", session.getOpenedBy());
+        sessionData.put("openedByName", userName(session.getOpenedBy()));
+        sessionData.put("openedAt", session.getOpenedAt());
+        sessionData.put("closedBy", session.getClosedBy());
+        sessionData.put("closedByName", userName(session.getClosedBy()));
+        sessionData.put("closedAt", session.getClosedAt());
+        sessionData.put("openingComment", session.getOpeningComment());
+        sessionData.put("closingComment", session.getClosingComment());
         return Map.of(
-                "session", session,
+                "session", sessionData,
                 "items", rows.stream().map(item -> {
                     var product = products.findById(item.getProductId()).orElse(null);
                     return Map.of(
@@ -147,13 +171,26 @@ public class InventoryCountService implements InventoryCountUseCase {
         session.setCountedProducts(totals.counted());
         session.setClosedBy(SecurityUtil.getCurrentUserId());
         session.setClosedAt(LocalDateTime.now());
+        session.setClosingComment(normalizeComment(request.getClosingComment()));
         session.setStatus("CLOSED");
-        return sessions.save(session);
+        sessions.saveAndFlush(session);
+        return createSession();
     }
 
     @Override
-    public List<InventoryCountSessionEntity> history() {
-        return sessions.findAllByOrderByOpenedAtDescIdDesc();
+    public PageResponseDTO<InventoryCountSessionEntity> history(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        var result = sessions.findAllByOrderByOpenedAtDescIdDesc(
+                PageRequest.of(safePage, safeSize)
+        );
+        return new PageResponseDTO<>(
+                result.getContent(),
+                result.getTotalElements(),
+                safePage,
+                safeSize,
+                result.hasNext()
+        );
     }
 
     @Override
@@ -167,6 +204,19 @@ public class InventoryCountService implements InventoryCountUseCase {
         return sessions.findById(id).orElseThrow(
                 () -> new BusinessException(HttpStatus.NOT_FOUND, "Conteo no encontrado.")
         );
+    }
+
+    private String userName(Long userId) {
+        if (userId == null) return "Sin registro";
+        return users.findByIdWithPerson(userId)
+                .map(user -> user.getPerson().getFullName())
+                .filter(name -> name != null && !name.isBlank())
+                .orElse("Usuario #" + userId);
+    }
+
+    private String normalizeComment(String comment) {
+        if (comment == null || comment.isBlank()) return null;
+        return comment.trim();
     }
 
     private InventoryCountSessionEntity findOpenOrReviewSession(Long id) {

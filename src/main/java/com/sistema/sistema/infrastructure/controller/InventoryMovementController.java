@@ -51,9 +51,12 @@ public class InventoryMovementController {
         return ApiResponseFactory.success(movement, "Movimiento de inventario encontrado correctamente.");
     }
 
-    @PreAuthorize("(#request.type == 'ENTRY' and hasAuthority('CREATE_PRODUCT_INVENTORY_ENTRY')) or "
-            + "(#request.type == 'WASTE' and hasAuthority('CREATE_PRODUCT_WASTE')) or "
-            + "(#request.type == 'ADJUSTMENT' and hasAuthority('ADJUST_PRODUCT_INVENTORY'))")
+    // #p0 is stable even when Java parameter names are not retained at build
+    // time. Using #request here can make Spring evaluate the expression as an
+    // internal error instead of returning 403 for a revoked permission.
+    @PreAuthorize("(#p0.type == 'ENTRY' and hasAuthority('CREATE_PRODUCT_INVENTORY_ENTRY')) or "
+            + "(#p0.type == 'WASTE' and hasAuthority('CREATE_PRODUCT_WASTE')) or "
+            + "(#p0.type == 'ADJUSTMENT' and hasAuthority('ADJUST_PRODUCT_INVENTORY'))")
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<InventoryMovementDTO>> create(@Valid @RequestBody InventoryMovementCreateRequest request) {
         InventoryMovementDTO movement = inventoryMovementUseCase.create(request);

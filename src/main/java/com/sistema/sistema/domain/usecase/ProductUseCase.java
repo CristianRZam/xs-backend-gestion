@@ -7,6 +7,7 @@ import com.sistema.sistema.application.dto.request.product.ProductViewRequest;
 import com.sistema.sistema.application.dto.response.product.ProductDTO;
 import com.sistema.sistema.application.dto.response.product.ProductFormResponse;
 import com.sistema.sistema.application.dto.response.product.ProductViewResponse;
+import com.sistema.sistema.application.dto.response.product.ProductLookupDTO;
 import com.sistema.sistema.application.dto.response.productimage.ProductImageDTO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +19,8 @@ public interface ProductUseCase {
     List<ProductDTO> findAllFiltered(ProductViewRequest request);
 
     ProductViewResponse init(ProductViewRequest request);
+
+    List<ProductLookupDTO> lookup(String query, int limit);
 
     ProductFormResponse initFormData(ProductFormRequest request);
 

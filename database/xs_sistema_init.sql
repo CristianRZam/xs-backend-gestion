@@ -1255,7 +1255,7 @@ INSERT INTO permissions (name, description, created_by, module) VALUES
 ('VIEW_ORDER', 'Permiso para ver órdenes', 1, 'Operaciones Órdenes'),
 ('CREATE_ORDER', 'Permiso para crear órdenes', 1, 'Operaciones Órdenes'),
 ('EDIT_ORDER', 'Permiso para editar órdenes pendientes', 1, 'Operaciones Órdenes'),
-('UPDATE_ORDER_STATUS', 'Permiso para actualizar el estado de órdenes', 1, 'Operaciones Órdenes'),
+('CANCEL_ORDER', 'Permiso para cancelar una orden', 1, 'Operaciones Órdenes'),
 ('DELETE_ORDER', 'Permiso para eliminar órdenes', 1, 'Operaciones Órdenes'),
 ('ADD_ORDER_ITEM', 'Permiso para agregar productos a una orden activa', 1, 'Operaciones Órdenes'),
 ('EDIT_PENDING_ORDER_ITEM', 'Permiso para editar o dividir productos pendientes de una orden', 1, 'Operaciones Órdenes'),

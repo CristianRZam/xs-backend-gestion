@@ -31,15 +31,22 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, Long> {
             "AND u.deletedAt IS NULL")
     Optional<UserEntity> findByUsernameWithRolesAndPerson(@Param("username") String username);
 
+    @Query("SELECT u FROM UserEntity u JOIN FETCH u.person WHERE u.id = :id AND u.deletedAt IS NULL")
+    Optional<UserEntity> findByIdWithPerson(@Param("id") Long id);
+
     @Query("SELECT DISTINCT u FROM UserEntity u " +
             "JOIN u.userRoles ur " +
             "JOIN ur.role r " +
+            "JOIN r.rolePermissions rp " +
+            "JOIN rp.permission p " +
             "WHERE u.active = TRUE " +
             "AND u.deletedAt IS NULL " +
             "AND ur.deletedAt IS NULL " +
             "AND r.active = TRUE " +
             "AND r.deletedAt IS NULL " +
-            "AND r.name = 'SUPER_ADMIN'")
-    List<UserEntity> findActiveSuperAdmins();
+            "AND rp.deletedAt IS NULL " +
+            "AND p.deletedAt IS NULL " +
+            "AND p.name = :permissionName")
+    List<UserEntity> findActiveUsersWithPermission(@Param("permissionName") String permissionName);
 
 }

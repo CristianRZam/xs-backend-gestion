@@ -274,6 +274,15 @@ public class ProductDAOImpl implements ProductRepository {
     }
 
     @Override
+    public List<com.sistema.sistema.application.dto.response.product.ProductLookupDTO> lookup(String query, int limit) {
+        String term = query == null ? "" : query.trim();
+        return jpa.findLookup(term, PageRequest.of(0, limit)).stream()
+                .map(product -> new com.sistema.sistema.application.dto.response.product.ProductLookupDTO(
+                        product.getId(), product.getName(), product.getCode(), product.getActive(), product.getDeletedAt() != null))
+                .toList();
+    }
+
+    @Override
     public boolean reserveStock(Long id, long quantity) {
         return jpa.reserveStock(id, quantity) > 0;
     }

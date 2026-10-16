@@ -4,6 +4,7 @@ import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
 import com.sistema.sistema.application.dto.request.sale.SaleCancellationRequest;
 import com.sistema.sistema.application.dto.response.ApiResponse;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
+import com.sistema.sistema.application.dto.response.sale.SaleListItemDTO;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import java.time.LocalDate;
 import com.sistema.sistema.domain.usecase.SaleUseCase;
@@ -27,8 +28,8 @@ public class SaleController {
         log.info("Venta registrada: saleId={}, orderId={}", sale.getId(), sale.getOrderId());
         return ApiResponseFactory.created(sale, "Venta registrada correctamente");
     }
-    @GetMapping public ResponseEntity<ApiResponse<PageResponseDTO<SaleDTO>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate) {
-        return ApiResponseFactory.success(saleUseCase.getPage(page, size, fromDate, toDate), "Ventas obtenidas correctamente");
+    @GetMapping public ResponseEntity<ApiResponse<PageResponseDTO<SaleListItemDTO>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate, @RequestParam(required = false) String status, @RequestParam(required = false) Long productId) {
+        return ApiResponseFactory.success(saleUseCase.getPage(page, size, fromDate, toDate, status, productId), "Ventas obtenidas correctamente");
     }
     @GetMapping("/{id}") public ResponseEntity<ApiResponse<SaleDTO>> getById(@PathVariable Long id) {
         return ApiResponseFactory.success(saleUseCase.getById(id), "Venta obtenida correctamente");

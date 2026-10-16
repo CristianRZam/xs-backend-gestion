@@ -9,10 +9,11 @@ import com.sistema.sistema.application.dto.request.order.OrderItemSplitRequest;
 import java.time.LocalDate;
 import com.sistema.sistema.domain.model.Order;
 import com.sistema.sistema.domain.model.OrderItem;
-import com.sistema.sistema.domain.model.OrderItemStatusHistory;
+import com.sistema.sistema.application.dto.response.order.OrderItemStatusHistoryDTO;
 import com.sistema.sistema.application.dto.request.order.OrderItemIncidentRequest;
 import com.sistema.sistema.domain.model.OrderItemIncident;
 import com.sistema.sistema.application.dto.response.order.OrderItemIncidentResponse;
+import com.sistema.sistema.application.dto.response.order.OrderListItemDTO;
 import com.sistema.sistema.domain.usecase.OrderUseCase;
 import com.sistema.sistema.infrastructure.util.ApiResponseFactory;
 import jakarta.validation.Valid;
@@ -67,9 +68,9 @@ public class OrderController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_ORDER')")
-    public ResponseEntity<ApiResponse<PageResponseDTO<Order>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate, @RequestParam(required = false) String status, @RequestParam(required = false) String search) {
+    public ResponseEntity<ApiResponse<PageResponseDTO<OrderListItemDTO>>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) LocalDate fromDate, @RequestParam(required = false) LocalDate toDate, @RequestParam(required = false) String status, @RequestParam(required = false) String search, @RequestParam(required = false) Long productId) {
 
-        PageResponseDTO<Order> data = orderUseCase.getPage(page, size, fromDate, toDate, status, search);
+        PageResponseDTO<OrderListItemDTO> data = orderUseCase.getPage(page, size, fromDate, toDate, status, search, productId);
         return ApiResponseFactory.success(data, "Ordenes obtenidas correctamente");
 
     }
@@ -104,7 +105,7 @@ public class OrderController {
     // ==========================================================
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('UPDATE_ORDER_STATUS')")
+    @PreAuthorize("hasAuthority('CANCEL_ORDER')")
     public ResponseEntity<ApiResponse<Order>> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> request) {
 
         String status = request.get("status");
@@ -114,7 +115,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/items")
-    @PreAuthorize("hasAuthority('ADD_ORDER_ITEM')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('ADD_ORDER_ITEM')")
     public ResponseEntity<ApiResponse<Order>> addItem(
             @PathVariable Long id,
             @Valid @RequestBody OrderItem request
@@ -125,7 +126,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/items/batch")
-    @PreAuthorize("hasAuthority('ADD_ORDER_ITEM')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('ADD_ORDER_ITEM')")
     public ResponseEntity<ApiResponse<Order>> addItems(
             @PathVariable Long id,
             @Valid @RequestBody OrderItemsCreateRequest request
@@ -136,7 +137,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/items/{itemId}")
-    @PreAuthorize("hasAuthority('EDIT_PENDING_ORDER_ITEM')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('EDIT_PENDING_ORDER_ITEM')")
     public ResponseEntity<ApiResponse<Order>> updatePendingItem(
             @PathVariable Long orderId,
             @PathVariable Long itemId,
@@ -150,7 +151,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{orderId}/items/{itemId}")
-    @PreAuthorize("hasAuthority('CANCEL_ORDER_ITEM')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('CANCEL_ORDER_ITEM')")
     public ResponseEntity<ApiResponse<Order>> cancelPendingItem(
             @PathVariable Long orderId,
             @PathVariable Long itemId,
@@ -165,7 +166,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/items/{itemId}/split")
-    @PreAuthorize("hasAuthority('EDIT_PENDING_ORDER_ITEM')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('EDIT_PENDING_ORDER_ITEM')")
     public ResponseEntity<ApiResponse<Order>> splitPendingItem(
             @PathVariable Long orderId,
             @PathVariable Long itemId,
@@ -179,10 +180,13 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/items/{itemId}/status")
-    @PreAuthorize("hasAuthority('CORRECT_ORDER_ITEM_STATUS') or (#request != null and #request.status != null and "
-            + "((#request.status.equalsIgnoreCase('PREPARING') and hasAuthority('PREPARE_ORDER_ITEM')) or "
-            + "(#request.status.equalsIgnoreCase('READY') and hasAuthority('MARK_ORDER_ITEM_READY')) or "
-            + "(#request.status.equalsIgnoreCase('SERVED') and hasAuthority('SERVE_ORDER_ITEM'))))")
+    @PreAuthorize("#request != null and #request.status != null and "
+            + "((#request.status.equalsIgnoreCase('SERVE_DIRECTLY') and hasAuthority('EDIT_ORDER') and hasAuthority('SERVE_ORDER_ITEM')) or "
+            + "((#request.status.equalsIgnoreCase('RESTORE_PREVIOUS') or #request.status.startsWith('CORRECT_TO_')) and hasAuthority('EDIT_ORDER') and hasAuthority('CORRECT_ORDER_ITEM_STATUS')) or "
+            + "((#request.status.equalsIgnoreCase('PENDING') or #request.status.equalsIgnoreCase('PREPARING') or #request.status.equalsIgnoreCase('READY') or #request.status.equalsIgnoreCase('SERVED')) and hasAuthority('EDIT_ORDER')) or "
+            + "(#request.status.equalsIgnoreCase('PREPARING') and hasAuthority('VIEW_KITCHEN_QUEUE') and hasAuthority('PREPARE_ORDER_ITEM')) or "
+            + "(#request.status.equalsIgnoreCase('READY') and hasAuthority('VIEW_KITCHEN_QUEUE') and hasAuthority('MARK_ORDER_ITEM_READY')) or "
+            + "(#request.status.equalsIgnoreCase('SERVED') and hasAuthority('SERVE_ORDER_ITEM')))")
     public ResponseEntity<ApiResponse<Order>> updateItemStatus(
             @PathVariable Long orderId,
             @PathVariable Long itemId,
@@ -193,24 +197,57 @@ public class OrderController {
         return ApiResponseFactory.success(data, "Estado del producto actualizado correctamente");
     }
 
+    /**
+     * Ruta exclusiva de cocina. No usa EDIT_ORDER: cada transición exige el
+     * permiso operativo correspondiente y acceso a la cola de cocina.
+     */
+    @PutMapping("/kitchen/{orderId}/items/{itemId}/status")
+    @PreAuthorize("hasAuthority('VIEW_KITCHEN_QUEUE') and #request != null and #request.status != null and "
+            + "((#request.status.equalsIgnoreCase('PREPARING') and hasAuthority('PREPARE_ORDER_ITEM')) or "
+            + "(#request.status.equalsIgnoreCase('READY') and hasAuthority('MARK_ORDER_ITEM_READY')) or "
+            + "(#request.status.equalsIgnoreCase('SERVED') and hasAuthority('SERVE_ORDER_ITEM')))")
+    public ResponseEntity<ApiResponse<Order>> updateKitchenItemStatus(
+            @PathVariable Long orderId,
+            @PathVariable Long itemId,
+            @Valid @RequestBody OrderItemStatusRequest request
+    ) {
+        Order data = orderUseCase.updateItemStatus(orderId, itemId, request.getStatus(), request.getComment());
+        return ApiResponseFactory.success(data, "Estado del producto actualizado correctamente");
+    }
+
     @PutMapping("/{orderId}/items/status")
-    @PreAuthorize("hasAuthority('CORRECT_ORDER_ITEM_STATUS') or hasAuthority('PREPARE_ORDER_ITEM') or hasAuthority('MARK_ORDER_ITEM_READY') or hasAuthority('SERVE_ORDER_ITEM')")
+    @PreAuthorize("#request != null and #request.status != null and "
+            + "((#request.status.equalsIgnoreCase('SERVE_DIRECTLY') and hasAuthority('EDIT_ORDER') and hasAuthority('SERVE_ORDER_ITEM')) or "
+            + "((#request.status.equalsIgnoreCase('RESTORE_PREVIOUS') or #request.status.startsWith('CORRECT_TO_')) and hasAuthority('EDIT_ORDER') and hasAuthority('CORRECT_ORDER_ITEM_STATUS')) or "
+            + "((#request.status.equalsIgnoreCase('PENDING') or #request.status.equalsIgnoreCase('PREPARING') or #request.status.equalsIgnoreCase('READY') or #request.status.equalsIgnoreCase('SERVED')) and hasAuthority('EDIT_ORDER')) or "
+            + "(#request.status.equalsIgnoreCase('PREPARING') and hasAuthority('VIEW_KITCHEN_QUEUE') and hasAuthority('PREPARE_ORDER_ITEM')) or "
+            + "(#request.status.equalsIgnoreCase('READY') and hasAuthority('VIEW_KITCHEN_QUEUE') and hasAuthority('MARK_ORDER_ITEM_READY')) or "
+            + "(#request.status.equalsIgnoreCase('SERVED') and hasAuthority('SERVE_ORDER_ITEM')))")
     public ResponseEntity<ApiResponse<Order>> updateItemsStatus(@PathVariable Long orderId, @Valid @RequestBody OrderItemsStatusRequest request) {
+        return ApiResponseFactory.success(orderUseCase.updateItemsStatus(orderId, request.getItemIds(), request.getStatus(), request.getComment()), "Productos actualizados correctamente");
+    }
+
+    @PutMapping("/kitchen/{orderId}/items/status")
+    @PreAuthorize("hasAuthority('VIEW_KITCHEN_QUEUE') and #request != null and #request.status != null and "
+            + "((#request.status.equalsIgnoreCase('PREPARING') and hasAuthority('PREPARE_ORDER_ITEM')) or "
+            + "(#request.status.equalsIgnoreCase('READY') and hasAuthority('MARK_ORDER_ITEM_READY')) or "
+            + "(#request.status.equalsIgnoreCase('SERVED') and hasAuthority('SERVE_ORDER_ITEM')))")
+    public ResponseEntity<ApiResponse<Order>> updateKitchenItemsStatus(@PathVariable Long orderId, @Valid @RequestBody OrderItemsStatusRequest request) {
         return ApiResponseFactory.success(orderUseCase.updateItemsStatus(orderId, request.getItemIds(), request.getStatus(), request.getComment()), "Productos actualizados correctamente");
     }
 
     @GetMapping("/{orderId}/items/{itemId}/status-history")
     @PreAuthorize("hasAuthority('VIEW_ORDER_ITEM_HISTORY')")
-    public ResponseEntity<ApiResponse<List<OrderItemStatusHistory>>> getItemStatusHistory(
+    public ResponseEntity<ApiResponse<List<OrderItemStatusHistoryDTO>>> getItemStatusHistory(
             @PathVariable Long orderId,
             @PathVariable Long itemId
     ) {
-        List<OrderItemStatusHistory> data = orderUseCase.getItemStatusHistory(orderId, itemId);
+        List<OrderItemStatusHistoryDTO> data = orderUseCase.getItemStatusHistory(orderId, itemId);
         return ApiResponseFactory.success(data, "Historial del producto obtenido correctamente");
     }
 
     @PostMapping("/{orderId}/items/{itemId}/incidents")
-    @PreAuthorize("hasAuthority('REPORT_ORDER_INCIDENT') and hasAuthority('APPROVE_ORDER_COMPENSATION')")
+    @PreAuthorize("hasAuthority('EDIT_ORDER') and hasAuthority('REPORT_ORDER_INCIDENT') and hasAuthority('APPROVE_ORDER_COMPENSATION')")
     public ResponseEntity<ApiResponse<Order>> reportServedItemIncident(@PathVariable Long orderId, @PathVariable Long itemId,
             @Valid @RequestBody OrderItemIncidentRequest request) {
         return ApiResponseFactory.success(orderUseCase.reportServedItemIncident(orderId, itemId, request), "Incidencia registrada correctamente");

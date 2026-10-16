@@ -9,6 +9,7 @@ import com.sistema.sistema.domain.model.Product;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
+import com.sistema.sistema.application.dto.response.product.ProductLookupDTO;
 
 public interface ProductRepository {
     Page<ProductDTO> findPaginated(ProductViewRequest request);
@@ -26,6 +27,8 @@ public interface ProductRepository {
     boolean delete(Long id);
 
     boolean updateStatus(Long id);
+
+    List<ProductLookupDTO> lookup(String query, int limit);
 
     Product findByCode(String code, long id);
 

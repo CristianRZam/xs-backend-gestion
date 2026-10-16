@@ -18,5 +18,6 @@ public class OrderItemStatusHistory {
     private String newStatus;
     private String comment;
     private Long changedBy;
+    private String changedByName;
     private LocalDateTime changedAt;
 }

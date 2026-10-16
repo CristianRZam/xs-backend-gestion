@@ -16,6 +16,14 @@ public interface JpaProductRepository extends JpaRepository<ProductEntity, Long>
 
     List<ProductEntity> findByActiveTrueAndDeletedAtIsNullOrderByNameAsc();
 
+    @Query("""
+            SELECT p FROM ProductEntity p
+            WHERE (LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))
+                   OR LOWER(p.code) LIKE LOWER(CONCAT('%', :query, '%')))
+            ORDER BY p.name ASC, p.id ASC
+            """)
+    List<ProductEntity> findLookup(@Param("query") String query, Pageable pageable);
+
     List<ProductEntity> findByActiveTrueAndDeletedAtIsNullAndTotalStockLessThanEqualOrderByNameAsc(
             Long stockThreshold
     );

@@ -42,14 +42,14 @@ class NotificationServiceTest {
 
         verify(notifications, never()).save(any());
         verify(userNotifications, never()).save(any());
-        verify(users, never()).findActiveSuperAdmins();
+        verify(users, never()).findActiveUsersWithPermission("VIEW_NOTIFICATION");
     }
 
     @Test
-    void digitalPaymentCreatesNotificationForActiveSuperAdmins() {
-        UserEntity superAdmin = UserEntity.builder().id(7L).username("owner").build();
-        when(users.findActiveSuperAdmins()).thenReturn(List.of(superAdmin));
-        when(users.findAllById(any())).thenReturn(List.of(superAdmin));
+    void digitalPaymentCreatesNotificationForActiveNotificationUsers() {
+        UserEntity recipient = UserEntity.builder().id(7L).username("owner").build();
+        when(users.findActiveUsersWithPermission("VIEW_NOTIFICATION")).thenReturn(List.of(recipient));
+        when(users.findAllById(any())).thenReturn(List.of(recipient));
         when(notifications.findByEventKey("PAYMENT_RECEIVED:SALE:30:PAYMENT:0"))
                 .thenReturn(Optional.empty());
         when(notifications.save(any())).thenAnswer(invocation -> {
@@ -77,9 +77,9 @@ class NotificationServiceTest {
 
     @Test
     void plinPaymentCreatesDigitalNotification() {
-        UserEntity superAdmin = UserEntity.builder().id(7L).username("owner").build();
-        when(users.findActiveSuperAdmins()).thenReturn(List.of(superAdmin));
-        when(users.findAllById(any())).thenReturn(List.of(superAdmin));
+        UserEntity recipient = UserEntity.builder().id(7L).username("owner").build();
+        when(users.findActiveUsersWithPermission("VIEW_NOTIFICATION")).thenReturn(List.of(recipient));
+        when(users.findAllById(any())).thenReturn(List.of(recipient));
         when(notifications.findByEventKey("PAYMENT_RECEIVED:SALE:30:PAYMENT:0"))
                 .thenReturn(Optional.empty());
         when(notifications.save(any())).thenAnswer(invocation -> {
@@ -98,7 +98,7 @@ class NotificationServiceTest {
 
     @Test
     void existingPaymentEventDoesNotCreateDuplicateNotificationOrRecipient() {
-        UserEntity superAdmin = UserEntity.builder().id(7L).username("owner").build();
+        UserEntity recipient = UserEntity.builder().id(7L).username("owner").build();
         NotificationEntity existing = NotificationEntity.builder()
                 .id(90L)
                 .eventKey("PAYMENT_RECEIVED:SALE:30:PAYMENT:0")
@@ -107,8 +107,8 @@ class NotificationServiceTest {
                 .title("Pago digital recibido")
                 .message("Pago existente")
                 .build();
-        when(users.findActiveSuperAdmins()).thenReturn(List.of(superAdmin));
-        when(users.findAllById(any())).thenReturn(List.of(superAdmin));
+        when(users.findActiveUsersWithPermission("VIEW_NOTIFICATION")).thenReturn(List.of(recipient));
+        when(users.findAllById(any())).thenReturn(List.of(recipient));
         when(notifications.findByEventKey(existing.getEventKey())).thenReturn(Optional.of(existing));
         when(userNotifications.existsByNotificationIdAndUserId(90L, 7L)).thenReturn(true);
 
@@ -116,7 +116,7 @@ class NotificationServiceTest {
 
         verify(notifications, never()).save(any());
         verify(userNotifications, never()).save(any());
-        verify(users).findActiveSuperAdmins();
+        verify(users).findActiveUsersWithPermission("VIEW_NOTIFICATION");
         verify(users).findAllById(any());
     }
 

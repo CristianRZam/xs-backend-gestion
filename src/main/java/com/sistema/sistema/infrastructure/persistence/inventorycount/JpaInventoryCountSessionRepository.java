@@ -1,6 +1,8 @@
 package com.sistema.sistema.infrastructure.persistence.inventorycount;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +17,8 @@ public interface JpaInventoryCountSessionRepository
     );
 
     List<InventoryCountSessionEntity> findAllByOrderByOpenedAtDescIdDesc();
+
+    Page<InventoryCountSessionEntity> findAllByOrderByOpenedAtDescIdDesc(Pageable pageable);
 
     List<InventoryCountSessionEntity> findByStatusInAndOpenedAtBefore(
             List<String> statuses,

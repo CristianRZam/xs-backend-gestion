@@ -40,6 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class NotificationService implements NotificationUseCase {
 
+    private static final String VIEW_NOTIFICATION = "VIEW_NOTIFICATION";
+
     private final JpaNotificationRepository notifications;
     private final JpaUserNotificationRepository userNotifications;
     private final JpaUserRepository users;
@@ -71,11 +73,13 @@ public class NotificationService implements NotificationUseCase {
             return;
         }
 
-        List<Long> superAdminIds = users.findActiveSuperAdmins().stream()
+        List<Long> recipientIds = users.findActiveUsersWithPermission(VIEW_NOTIFICATION).stream()
                 .map(user -> user.getId())
                 .toList();
 
-        if (superAdminIds.isEmpty()) {
+        if (recipientIds.isEmpty()) {
+            log.debug("No hay usuarios activos con {} para recibir el pago digital de venta {}.",
+                    VIEW_NOTIFICATION, sale.getId());
             return;
         }
 
@@ -97,7 +101,7 @@ public class NotificationService implements NotificationUseCase {
                     .referenceType("SALE")
                     .referenceId(sale.getId())
                     .metadata(paymentMetadata(sale, payment, paymentMethod))
-                    .build(), superAdminIds);
+                    .build(), recipientIds);
         }
     }
 

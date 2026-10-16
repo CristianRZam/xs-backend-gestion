@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -92,6 +93,18 @@ public class GlobalExceptionHandler {
     }
 
     // 5️. Cualquier otra excepción no controlada
+    // Method-security denials must preserve their 403 status. Otherwise this
+    // advice's generic Exception handler turns a revoked permission into 500.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDenied(AccessDeniedException ex) {
+        log.warn("Acceso denegado: {}", ex.getMessage());
+        return ApiResponseFactory.error(
+                HttpStatus.FORBIDDEN,
+                "No tiene permisos para realizar esta accion.",
+                List.of()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneralExceptions(Exception ex) {
         log.error("Error no controlado al procesar la solicitud", ex);

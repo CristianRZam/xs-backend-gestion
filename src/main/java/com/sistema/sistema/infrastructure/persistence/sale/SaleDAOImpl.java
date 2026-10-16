@@ -2,6 +2,7 @@ package com.sistema.sistema.infrastructure.persistence.sale;
 
 import com.sistema.sistema.application.dto.request.sale.SaleCreateRequest;
 import com.sistema.sistema.application.dto.response.sale.SaleDTO;
+import com.sistema.sistema.application.dto.response.sale.SaleListItemDTO;
 import com.sistema.sistema.domain.repository.SaleRepository;
 import com.sistema.sistema.infrastructure.security.SecurityUtil;
 import jakarta.persistence.EntityNotFoundException;
@@ -74,12 +75,12 @@ public class SaleDAOImpl implements SaleRepository {
                 .map(this::toDto)
                 .toList();
     }
-    @Override public PageResponseDTO<SaleDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate) {
+    @Override public PageResponseDTO<SaleListItemDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, Long productId) {
         LocalDateTime from = fromDate == null ? null : fromDate.atStartOfDay();
         LocalDateTime to = toDate == null ? null : toDate.plusDays(1).atStartOfDay();
         PageRequest pageable = PageRequest.of(page, size);
-        Page<SaleEntity> result = from == null && to == null ? jpa.findByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) : from != null && to != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(from, to, pageable) : from != null ? jpa.findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(from, pageable) : jpa.findByDeletedAtIsNullAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(to, pageable);
-        return new PageResponseDTO<>(result.getContent().stream().map(this::toDto).toList(), result.getTotalElements(), page, size, result.hasNext());
+        Page<SaleListItemProjection> result = jpa.findListPage(from, to, status, productId, pageable);
+        return new PageResponseDTO<>(result.getContent().stream().map(this::toListItemDto).toList(), result.getTotalElements(), page, size, result.hasNext());
     }
     @Override public boolean existsByOrderId(Long orderId) {
         return jpa.existsByOrderIdAndDeletedAtIsNullAndStatus(orderId, "COMPLETED");
@@ -150,6 +151,19 @@ public class SaleDAOImpl implements SaleRepository {
                         .receivedAmount(p.getReceivedAmount()).changeAmount(p.getChangeAmount())
                         .reference(p.getReference()).build()).toList())
                 .build();
+    }
+
+    private SaleListItemDTO toListItemDto(SaleListItemProjection sale) {
+        List<String> paymentMethods = sale.getPaymentMethods() == null || sale.getPaymentMethods().isBlank()
+                ? List.of()
+                : List.of(sale.getPaymentMethods().split(","));
+        return SaleListItemDTO.builder()
+                .id(sale.getId()).saleNumber(sale.getSaleNumber()).orderId(sale.getOrderId())
+                .orderNumber(sale.getOrderNumber())
+                .total(sale.getTotal()).status(sale.getStatus()).notes(sale.getNotes())
+                .createdByName(sale.getCreatedByName()).createdAt(sale.getCreatedAt())
+                .itemCount(sale.getItemCount()).totalQuantity(sale.getTotalQuantity())
+                .paymentMethods(paymentMethods).build();
     }
     private BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
 

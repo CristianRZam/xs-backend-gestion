@@ -9,6 +9,8 @@ import com.sistema.sistema.domain.model.OrderItemIncident;
 import java.util.List;
 import java.time.LocalDate;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
+import com.sistema.sistema.application.dto.response.order.OrderListItemDTO;
+import com.sistema.sistema.application.dto.response.order.OrderItemStatusHistoryDTO;
 
 public interface OrderUseCase {
 
@@ -17,7 +19,7 @@ public interface OrderUseCase {
     Order getById(Long id);
 
     List<Order> getAll();
-    PageResponseDTO<Order> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search);
+    PageResponseDTO<OrderListItemDTO> getPage(int page, int size, LocalDate fromDate, LocalDate toDate, String status, String search, Long productId);
 
     PageResponseDTO<Order> getKitchenQueue(int page, int size);
 
@@ -40,7 +42,7 @@ public interface OrderUseCase {
     Order reportServedItemIncident(Long orderId, Long itemId, OrderItemIncidentRequest request);
     List<OrderItemIncident> getIncidents(Long orderId);
 
-    List<OrderItemStatusHistory> getItemStatusHistory(Long orderId, Long itemId);
+    List<OrderItemStatusHistoryDTO> getItemStatusHistory(Long orderId, Long itemId);
 
     void delete(Long id);
 
