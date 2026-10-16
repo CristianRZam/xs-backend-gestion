@@ -83,6 +83,7 @@ public class OrderService implements OrderUseCase {
         // El identificador se asigna en persistencia desde el reloj del servidor.
         order.setOrderNumber("SERVER_GENERATED");
         validateOrder(order);
+        normalizeAndValidateCharges(order);
 
         if (order.getOrderType() == null ||
                 order.getOrderType().isBlank()) {
@@ -155,9 +156,15 @@ public class OrderService implements OrderUseCase {
             );
         }
 
-        validateOrder(order);
-
         Order current = repository.getById(id);
+        validateOrder(order);
+        if (order.getPackagingCharge() == null) {
+            order.setPackagingCharge(current.getPackagingCharge());
+        }
+        if (order.getDeliveryCharge() == null) {
+            order.setDeliveryCharge(current.getDeliveryCharge());
+        }
+        normalizeAndValidateCharges(order);
 
         /*
          * Una orden solamente puede modificarse
@@ -276,7 +283,24 @@ public class OrderService implements OrderUseCase {
         item.setFulfillmentType(defaultFulfillmentType(item.getFulfillmentType(), current.getOrderType()));
         adjustReservedStock(List.of(existing), List.of(item));
         log.info("Updating pending item {} in order {}", itemId, orderId);
-        return withIncidentDiscount(repository.updatePendingItem(orderId, itemId, item, SecurityUtil.getCurrentUserId()));
+        Order updated = repository.updatePendingItem(orderId, itemId, item, SecurityUtil.getCurrentUserId());
+        return withIncidentDiscount(clearChargesThatNoLongerApply(updated));
+    }
+
+    @Override
+    @Transactional
+    public Order updateCharges(Long orderId, BigDecimal packagingCharge, BigDecimal deliveryCharge) {
+        if (orderId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "El id de la orden es obligatorio.");
+        }
+        Order current = repository.getById(orderId);
+        ensureActiveOrder(current);
+        current.setPackagingCharge(packagingCharge);
+        current.setDeliveryCharge(deliveryCharge);
+        normalizeAndValidateCharges(current);
+        log.info("Updating charges for order {}", orderId);
+        return withIncidentDiscount(repository.updateCharges(orderId, current.getPackagingCharge(),
+                current.getDeliveryCharge(), SecurityUtil.getCurrentUserId()));
     }
 
     @Override
@@ -305,8 +329,9 @@ public class OrderService implements OrderUseCase {
         }
         incidentRepository.supersedeApprovedDiscounts(orderId, itemId);
         log.info("Cancelling {} item {} in order {}", disposition, itemId, orderId);
-        return withIncidentDiscount(repository.cancelServedItem(orderId, itemId,
-                "[" + disposition + "] " + comment.trim(), SecurityUtil.getCurrentUserId()));
+        Order updated = repository.cancelServedItem(orderId, itemId,
+                "[" + disposition + "] " + comment.trim(), SecurityUtil.getCurrentUserId());
+        return withIncidentDiscount(clearChargesThatNoLongerApply(updated));
     }
 
     @Override
@@ -892,6 +917,59 @@ public class OrderService implements OrderUseCase {
         for (OrderItem item : order.getItems()) {
             validateOrderItem(item);
         }
+    }
+
+    private void normalizeAndValidateCharges(Order order) {
+        BigDecimal packagingCharge = zero(order.getPackagingCharge());
+        BigDecimal deliveryCharge = zero(order.getDeliveryCharge());
+        if (packagingCharge.signum() < 0 || deliveryCharge.signum() < 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Los cargos de envase y delivery no pueden ser negativos.");
+        }
+        boolean hasPackagingEligibleItem = order.getItems().stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .map(item -> defaultFulfillmentType(item.getFulfillmentType(), order.getOrderType()))
+                .anyMatch(type -> "TAKEAWAY".equals(type) || "DELIVERY".equals(type));
+        boolean hasDeliveryItem = order.getItems().stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .map(item -> defaultFulfillmentType(item.getFulfillmentType(), order.getOrderType()))
+                .anyMatch("DELIVERY"::equals);
+        if (packagingCharge.signum() > 0 && !hasPackagingEligibleItem) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "El cargo por envase solo aplica cuando la orden tiene productos para llevar o delivery.");
+        }
+        if (deliveryCharge.signum() > 0 && !hasDeliveryItem) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "El cargo por delivery solo aplica cuando la orden tiene productos delivery.");
+        }
+        order.setPackagingCharge(packagingCharge);
+        order.setDeliveryCharge(deliveryCharge);
+    }
+
+    /** Clears a charge when the last item that justified it was removed or changed. */
+    private Order clearChargesThatNoLongerApply(Order order) {
+        boolean hasPackagingEligibleItem = order.getItems().stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .map(item -> defaultFulfillmentType(item.getFulfillmentType(), order.getOrderType()))
+                .anyMatch(type -> "TAKEAWAY".equals(type) || "DELIVERY".equals(type));
+        boolean hasDeliveryItem = order.getItems().stream()
+                .filter(item -> !"CANCELLED".equals(item.getStatus()))
+                .map(item -> defaultFulfillmentType(item.getFulfillmentType(), order.getOrderType()))
+                .anyMatch("DELIVERY"::equals);
+        BigDecimal packagingCharge = hasPackagingEligibleItem
+                ? zero(order.getPackagingCharge()) : BigDecimal.ZERO;
+        BigDecimal deliveryCharge = hasDeliveryItem
+                ? zero(order.getDeliveryCharge()) : BigDecimal.ZERO;
+        if (packagingCharge.compareTo(zero(order.getPackagingCharge())) == 0
+                && deliveryCharge.compareTo(zero(order.getDeliveryCharge())) == 0) {
+            return order;
+        }
+        log.info("Clearing inapplicable charges in order {}", order.getId());
+        return repository.updateCharges(order.getId(), packagingCharge, deliveryCharge,
+                SecurityUtil.getCurrentUserId());
+    }
+
+    private BigDecimal zero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private void validateOrderItem(OrderItem item) {

@@ -87,6 +87,15 @@ public class SaleService implements SaleUseCase {
                     .map(OrderItemIncident::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
             request.setDiscount(zero(request.getDiscount()).add(approvedDiscount));
         }
+        BigDecimal packagingCharge = request.getOrderId() == null
+                ? zero(request.getPackagingCharge())
+                : request.getPackagingCharge() == null ? zero(order.getPackagingCharge()) : request.getPackagingCharge();
+        BigDecimal deliveryCharge = request.getOrderId() == null
+                ? zero(request.getDeliveryCharge())
+                : request.getDeliveryCharge() == null ? zero(order.getDeliveryCharge()) : request.getDeliveryCharge();
+        validateCharges(order, packagingCharge, deliveryCharge);
+        request.setPackagingCharge(packagingCharge);
+        request.setDeliveryCharge(deliveryCharge);
         validatePayments(request.getPayments(), calculateTotal(request));
 
         BigDecimal subtotal = request.getItems().stream()
@@ -115,6 +124,8 @@ public class SaleService implements SaleUseCase {
         }
         if (order != null) {
             log.info("Completing order {} after sale {}", order.getId(), sale.getId());
+            orderRepository.updateCharges(order.getId(), packagingCharge, deliveryCharge,
+                    com.sistema.sistema.infrastructure.security.SecurityUtil.getCurrentUserId());
             orderRepository.updateStatus(order.getId(), "COMPLETED");
         }
         notificationUseCase.createDigitalPaymentNotifications(sale);
@@ -184,7 +195,9 @@ public class SaleService implements SaleUseCase {
         BigDecimal itemTotal = request.getItems().stream().map(item -> item.getUnitPrice()
                 .multiply(item.getQuantity()).subtract(zero(item.getDiscount())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal total = itemTotal.subtract(zero(request.getDiscount()));
+        BigDecimal total = itemTotal.subtract(zero(request.getDiscount()))
+                .add(zero(request.getPackagingCharge()))
+                .add(zero(request.getDeliveryCharge()));
         if (total.signum() < 0) throw new BusinessException(HttpStatus.BAD_REQUEST, "El descuento no puede superar el subtotal.");
         return total;
     }
@@ -244,6 +257,12 @@ public class SaleService implements SaleUseCase {
             throw new BusinessException(HttpStatus.BAD_REQUEST,
                     "Los precios de la venta deben coincidir con los de la orden.");
         }
+        Map<String, BigDecimal> requestedLines = saleQuantitiesByProductAndPrice(items);
+        Map<String, BigDecimal> orderedLines = orderQuantitiesByProductAndPrice(chargeableItems(order));
+        if (!sameQuantities(requestedLines, orderedLines)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "Los productos, precios y cantidades de la venta deben coincidir con los de la orden.");
+        }
     }
 
     private void validateOrderIsReadyToCharge(Order order) {
@@ -258,6 +277,27 @@ public class SaleService implements SaleUseCase {
                     HttpStatus.BAD_REQUEST,
                     "No se puede cobrar la orden hasta que todos sus productos activos estén servidos."
             );
+        }
+    }
+
+    private void validateCharges(Order order, BigDecimal packagingCharge, BigDecimal deliveryCharge) {
+        if (packagingCharge.signum() < 0 || deliveryCharge.signum() < 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Los cargos de envase y delivery no pueden ser negativos.");
+        }
+        // Las ventas directas no tienen una orden que determine su modalidad. El vendedor
+        // puede aplicar ambos cargos manualmente; en ventas desde orden se valida la modalidad.
+        if (order == null) return;
+        List<OrderItem> activeItems = activeItems(order);
+        boolean hasPackagingEligibleItem = activeItems.stream().anyMatch(item ->
+                "TAKEAWAY".equals(item.getFulfillmentType()) || "DELIVERY".equals(item.getFulfillmentType()));
+        boolean hasDeliveryItem = activeItems.stream().anyMatch(item -> "DELIVERY".equals(item.getFulfillmentType()));
+        if (packagingCharge.signum() > 0 && !hasPackagingEligibleItem) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "El cargo por envase solo aplica cuando existen productos para llevar o delivery.");
+        }
+        if (deliveryCharge.signum() > 0 && !hasDeliveryItem) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "El cargo por delivery solo aplica cuando existen productos delivery.");
         }
     }
 
@@ -278,6 +318,36 @@ public class SaleService implements SaleUseCase {
         Map<Long, Long> result = new HashMap<>();
         for (SaleCreateRequest.SaleItemRequest item : items) result.merge(item.getProductId(), exactQuantity(item.getQuantity()), Long::sum);
         return result;
+    }
+
+    private Map<String, BigDecimal> saleQuantitiesByProductAndPrice(
+            List<SaleCreateRequest.SaleItemRequest> items) {
+        Map<String, BigDecimal> result = new HashMap<>();
+        for (SaleCreateRequest.SaleItemRequest item : items) {
+            result.merge(lineKey(item.getProductId(), item.getUnitPrice()),
+                    item.getQuantity(), BigDecimal::add);
+        }
+        return result;
+    }
+
+    private Map<String, BigDecimal> orderQuantitiesByProductAndPrice(List<OrderItem> items) {
+        Map<String, BigDecimal> result = new HashMap<>();
+        for (OrderItem item : items) {
+            result.merge(lineKey(item.getProductId(), item.getUnitPrice()),
+                    item.getQuantity(), BigDecimal::add);
+        }
+        return result;
+    }
+
+    private boolean sameQuantities(Map<String, BigDecimal> left, Map<String, BigDecimal> right) {
+        return left.size() == right.size() && left.entrySet().stream().allMatch(entry -> {
+            BigDecimal expected = right.get(entry.getKey());
+            return expected != null && entry.getValue().compareTo(expected) == 0;
+        });
+    }
+
+    private String lineKey(Long productId, BigDecimal unitPrice) {
+        return productId + "|" + unitPrice.stripTrailingZeros().toPlainString();
     }
     private Map<Long, Long> quantitiesByProductFromSale(SaleDTO sale) {
         Map<Long, Long> result = new HashMap<>();

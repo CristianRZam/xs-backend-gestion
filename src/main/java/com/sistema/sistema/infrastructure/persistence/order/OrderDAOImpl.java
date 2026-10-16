@@ -138,6 +138,18 @@ public class OrderDAOImpl implements OrderRepository {
     }
 
     @Override
+    public Order updateCharges(Long orderId, java.math.BigDecimal packagingCharge,
+                               java.math.BigDecimal deliveryCharge, Long modifiedBy) {
+        OrderEntity entity = findOrderEntity(orderId);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        entity.setPackagingCharge(packagingCharge);
+        entity.setDeliveryCharge(deliveryCharge);
+        entity.setModifiedBy(modifiedBy);
+        entity.setModifiedAt(now);
+        return mapper.toDomain(jpa.save(entity));
+    }
+
+    @Override
     public Order cancelPendingItem(Long orderId, Long itemId, String comment, Long changedBy) {
         OrderEntity entity = findOrderEntity(orderId);
         OrderItemEntity item = findItemEntity(entity, itemId);
@@ -277,6 +289,8 @@ public class OrderDAOImpl implements OrderRepository {
         entity.setOrderType(order.getOrderType());
         entity.setTableNumber(order.getTableNumber());
         entity.setNotes(order.getNotes());
+        entity.setPackagingCharge(order.getPackagingCharge());
+        entity.setDeliveryCharge(order.getDeliveryCharge());
 
         /*
          * Reemplazamos los items actuales por los nuevos.

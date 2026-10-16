@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,6 +53,14 @@ public class OrderEntity {
 
     @Column(name = "notes", length = 500)
     private String notes;
+
+    @Builder.Default
+    @Column(name = "packaging_charge", nullable = false, precision = 12, scale = 2)
+    private BigDecimal packagingCharge = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "delivery_charge", nullable = false, precision = 12, scale = 2)
+    private BigDecimal deliveryCharge = BigDecimal.ZERO;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("id ASC")

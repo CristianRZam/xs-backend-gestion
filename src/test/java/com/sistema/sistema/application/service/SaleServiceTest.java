@@ -119,6 +119,57 @@ class SaleServiceTest {
         verify(notificationUseCase).createDigitalPaymentNotifications(savedSale);
     }
 
+    @Test
+    void createFromOrderPersistsAdjustedChargesAndSynchronizesTheOrder() {
+        Order order = Order.builder()
+                .id(10L)
+                .status("READY")
+                .packagingCharge(BigDecimal.ONE)
+                .deliveryCharge(BigDecimal.valueOf(4))
+                .items(List.of(orderItem(1L, BigDecimal.ONE, "SERVED", "DELIVERY")))
+                .build();
+        SaleDTO savedSale = SaleDTO.builder().id(99L).saleNumber("VTA-TEST").orderId(10L).build();
+        SaleCreateRequest request = orderSaleRequest(10L);
+        request.setPackagingCharge(BigDecimal.valueOf(2));
+        request.setDeliveryCharge(BigDecimal.valueOf(5));
+        request.getPayments().get(0).setAmount(BigDecimal.valueOf(17));
+        request.getPayments().get(0).setReceivedAmount(BigDecimal.valueOf(17));
+        when(cashSessionUseCase.existsOpenSession()).thenReturn(true);
+        when(cashSessionUseCase.getCurrentSession()).thenReturn(session());
+        when(orderRepository.getById(10L)).thenReturn(order);
+        when(saleRepository.existsByOrderId(10L)).thenReturn(false);
+        when(saleRepository.create(any(), eq(1L), eq(2L), eq(BigDecimal.TEN), eq(BigDecimal.valueOf(17)))).thenReturn(savedSale);
+        when(productRepository.findById(1L)).thenReturn(ProductDTO.builder().id(1L).totalStock(5L).build());
+        when(productRepository.consumeReservedStock(1L, 1L)).thenReturn(true);
+
+        service.create(request);
+
+        verify(orderRepository).updateCharges(eq(10L), eq(BigDecimal.valueOf(2)), eq(BigDecimal.valueOf(5)), any());
+        verify(orderRepository).updateStatus(10L, "COMPLETED");
+    }
+
+    @Test
+    void createRejectsPackagingChargeForAnOrderWithoutTakeawayOrDeliveryItems() {
+        SaleCreateRequest request = orderSaleRequest(10L);
+        request.setPackagingCharge(BigDecimal.ONE);
+        request.getPayments().get(0).setAmount(BigDecimal.valueOf(11));
+        request.getPayments().get(0).setReceivedAmount(BigDecimal.valueOf(11));
+        when(cashSessionUseCase.existsOpenSession()).thenReturn(true);
+        when(cashSessionUseCase.getCurrentSession()).thenReturn(session());
+        when(orderRepository.getById(10L)).thenReturn(Order.builder()
+                .id(10L).status("READY")
+                .items(List.of(orderItem(1L, BigDecimal.ONE, "SERVED")))
+                .build());
+        when(saleRepository.existsByOrderId(10L)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.create(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        assertEquals("El cargo por envase solo aplica cuando existen productos para llevar o delivery.", exception.getMessage());
+        verify(saleRepository, never()).create(any(), any(), any(), any(), any());
+        verifyNoInteractions(productRepository, inventoryRepository, notificationUseCase);
+    }
+
     private SaleCreateRequest orderSaleRequest(Long orderId) {
         SaleCreateRequest.SaleItemRequest item = new SaleCreateRequest.SaleItemRequest();
         item.setProductId(1L);
@@ -139,11 +190,16 @@ class SaleServiceTest {
     }
 
     private OrderItem orderItem(Long productId, BigDecimal quantity, String status) {
+        return orderItem(productId, quantity, status, "DINE_IN");
+    }
+
+    private OrderItem orderItem(Long productId, BigDecimal quantity, String status, String fulfillmentType) {
         return OrderItem.builder()
                 .productId(productId)
                 .quantity(quantity)
                 .unitPrice(BigDecimal.TEN)
                 .status(status)
+                .fulfillmentType(fulfillmentType)
                 .build();
     }
 

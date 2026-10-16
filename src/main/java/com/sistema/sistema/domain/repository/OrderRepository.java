@@ -28,6 +28,8 @@ public interface OrderRepository {
 
     Order updatePendingItem(Long orderId, Long itemId, OrderItem item, Long modifiedBy);
 
+    Order updateCharges(Long orderId, java.math.BigDecimal packagingCharge, java.math.BigDecimal deliveryCharge, Long modifiedBy);
+
     Order cancelPendingItem(Long orderId, Long itemId, String comment, Long changedBy);
 
     Order splitPendingItem(Long orderId, Long itemId, java.math.BigDecimal quantity, String fulfillmentType, Long changedBy);

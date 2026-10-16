@@ -16,6 +16,8 @@ public class SaleDTO {
     private final Long cashRegisterId;
     private final BigDecimal subtotal;
     private final BigDecimal discount;
+    private final BigDecimal packagingCharge;
+    private final BigDecimal deliveryCharge;
     private final BigDecimal total;
     private final String status;
     private final String notes;

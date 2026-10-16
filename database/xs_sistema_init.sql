@@ -550,6 +550,8 @@ CREATE TABLE orders (
     table_number VARCHAR(20),
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     notes VARCHAR(500),
+    packaging_charge NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    delivery_charge NUMERIC(12,2) NOT NULL DEFAULT 0.00,
     created_by BIGINT,
     created_at TIMESTAMP DEFAULT NOW(),
     modified_by BIGINT,
@@ -559,7 +561,13 @@ CREATE TABLE orders (
 
     CONSTRAINT fk_orders_cash_register
         FOREIGN KEY (cash_register_id)
-        REFERENCES cash_registers(id)
+        REFERENCES cash_registers(id),
+
+    CONSTRAINT chk_orders_packaging_charge_non_negative
+        CHECK (packaging_charge >= 0),
+
+    CONSTRAINT chk_orders_delivery_charge_non_negative
+        CHECK (delivery_charge >= 0)
 );
 
 -- ==========================================
@@ -574,6 +582,8 @@ COMMENT ON COLUMN orders.order_type is 'Tipo de atención de la orden. Ejemplos:
 COMMENT ON COLUMN orders.table_number is 'Número o identificador de la mesa asociada a la orden cuando corresponde a una atención en salón.';
 COMMENT ON COLUMN orders.status is 'Estado actual de la orden. Ejemplos: PENDING = pendiente, PREPARING = en preparación, READY = lista, COMPLETED = completada, CANCELLED = cancelada.';
 COMMENT ON COLUMN orders.notes is 'Observaciones generales asociadas a la orden.';
+COMMENT ON COLUMN orders.packaging_charge is 'Monto adicional por envases aplicado a la orden. Inicia en 0.00 y solo corresponde cuando se cobra un pedido para llevar o delivery.';
+COMMENT ON COLUMN orders.delivery_charge is 'Monto adicional por el servicio de delivery aplicado a la orden. Inicia en 0.00 y solo corresponde cuando se cobra un pedido con entrega a domicilio.';
 COMMENT ON COLUMN orders.created_by is 'Usuario que creó la orden.';
 COMMENT ON COLUMN orders.created_at is 'Fecha y hora en que se creó la orden.';
 COMMENT ON COLUMN orders.modified_by is 'Usuario que realizó la última modificación de la orden.';
@@ -674,6 +684,8 @@ CREATE TABLE sales (
     cash_register_id BIGINT NOT NULL,
     subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
     discount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    packaging_charge NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    delivery_charge NUMERIC(12,2) NOT NULL DEFAULT 0.00,
     total NUMERIC(12,2) NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
     notes VARCHAR(500),
@@ -690,7 +702,13 @@ CREATE TABLE sales (
 
     CONSTRAINT fk_sales_cash_register
         FOREIGN KEY (cash_register_id)
-        REFERENCES cash_registers(id)
+        REFERENCES cash_registers(id),
+
+    CONSTRAINT chk_sales_packaging_charge_non_negative
+        CHECK (packaging_charge >= 0),
+
+    CONSTRAINT chk_sales_delivery_charge_non_negative
+        CHECK (delivery_charge >= 0)
 );
 
 -- ==========================================
@@ -704,6 +722,8 @@ COMMENT ON COLUMN sales.order_id is 'Identificador de la orden que originó la v
 COMMENT ON COLUMN sales.cash_register_id is 'Identificador de la caja registradora en la que se realizó la venta.';
 COMMENT ON COLUMN sales.subtotal is 'Subtotal de la venta antes de aplicar descuentos.';
 COMMENT ON COLUMN sales.discount is 'Monto total de descuento aplicado a la venta.';
+COMMENT ON COLUMN sales.packaging_charge is 'Monto final cobrado por envases. Inicia en 0.00 y se conserva como parte del historial financiero de la venta.';
+COMMENT ON COLUMN sales.delivery_charge is 'Monto final cobrado por delivery. Inicia en 0.00 y se conserva como parte del historial financiero de la venta.';
 COMMENT ON COLUMN sales.total is 'Importe total final de la venta después de aplicar descuentos.';
 COMMENT ON COLUMN sales.status is 'Estado de la venta. Ejemplos: COMPLETED = completada, CANCELLED = cancelada, REFUNDED = devuelta o anulada.';
 COMMENT ON COLUMN sales.created_by is 'Usuario que registró la venta.';

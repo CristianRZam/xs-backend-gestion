@@ -61,7 +61,7 @@ public interface JpaOrderRepository extends JpaRepository<OrderEntity, Long>, Jp
                              AND discounted_item.status <> 'CANCELLED'
                        ), 0),
                        0
-                   ) AS "totalAmount",
+                   ) + COALESCE(o.packaging_charge, 0) + COALESCE(o.delivery_charge, 0) AS "totalAmount",
                    COUNT(oi.id) FILTER (WHERE oi.status = 'PENDING') AS "pendingItemCount",
                    COUNT(oi.id) FILTER (WHERE oi.status = 'PREPARING') AS "preparingItemCount",
                    COUNT(oi.id) FILTER (WHERE oi.status = 'READY') AS "readyItemCount",

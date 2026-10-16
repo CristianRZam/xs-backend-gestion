@@ -41,15 +41,27 @@ public class SaleDAOImpl implements SaleRepository {
         SaleEntity sale = SaleEntity.builder()
                 .saleNumber(formatSaleNumber(now)).orderId(request.getOrderId())
                 .cashRegisterId(cashRegisterId).subtotal(subtotal)
-                .discount(zero(request.getDiscount())).total(total).status("COMPLETED")
+                .discount(zero(request.getDiscount())).packagingCharge(zero(request.getPackagingCharge()))
+                .deliveryCharge(zero(request.getDeliveryCharge())).total(total).status("COMPLETED")
                 .notes(normalizeNotes(request.getNotes()))
                 .createdBy(userId).createdAt(now).build();
+        var itemsByProductAndPrice = new LinkedHashMap<String, SaleItemEntity>();
         for (SaleCreateRequest.SaleItemRequest item : request.getItems()) {
             BigDecimal itemSubtotal = item.getUnitPrice().multiply(item.getQuantity())
                     .subtract(zero(item.getDiscount()));
-            sale.getItems().add(SaleItemEntity.builder().sale(sale).productId(item.getProductId())
-                    .quantity(item.getQuantity()).unitPrice(item.getUnitPrice())
-                    .discount(zero(item.getDiscount())).subtotal(itemSubtotal).build());
+            String key = item.getProductId() + "|" + item.getUnitPrice().stripTrailingZeros().toPlainString();
+            SaleItemEntity existing = itemsByProductAndPrice.get(key);
+            if (existing == null) {
+                SaleItemEntity saleItem = SaleItemEntity.builder().sale(sale).productId(item.getProductId())
+                        .quantity(item.getQuantity()).unitPrice(item.getUnitPrice())
+                        .discount(zero(item.getDiscount())).subtotal(itemSubtotal).build();
+                itemsByProductAndPrice.put(key, saleItem);
+                sale.getItems().add(saleItem);
+            } else {
+                existing.setQuantity(existing.getQuantity().add(item.getQuantity()));
+                existing.setDiscount(existing.getDiscount().add(zero(item.getDiscount())));
+                existing.setSubtotal(existing.getSubtotal().add(itemSubtotal));
+            }
         }
         for (SaleCreateRequest.PaymentRequest payment : request.getPayments()) {
             String paymentMethod = payment.getPaymentMethod().trim().toUpperCase(Locale.ROOT);
@@ -136,6 +148,7 @@ public class SaleDAOImpl implements SaleRepository {
         return SaleDTO.builder().id(sale.getId()).saleNumber(sale.getSaleNumber())
                 .orderId(sale.getOrderId()).cashRegisterId(sale.getCashRegisterId())
                 .subtotal(sale.getSubtotal()).discount(sale.getDiscount()).total(sale.getTotal())
+                .packagingCharge(sale.getPackagingCharge()).deliveryCharge(sale.getDeliveryCharge())
                 .status(sale.getStatus()).notes(sale.getNotes()).createdBy(sale.getCreatedBy())
                 .createdByName(createdByName).createdAt(sale.getCreatedAt())
                 .cancellationReason(cancellation == null ? null : cancellation.getReason())

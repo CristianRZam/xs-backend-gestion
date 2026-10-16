@@ -6,6 +6,7 @@ import com.sistema.sistema.application.dto.request.order.OrderItemStatusRequest;
 import com.sistema.sistema.application.dto.request.order.OrderItemsCreateRequest;
 import com.sistema.sistema.application.dto.request.order.OrderItemsStatusRequest;
 import com.sistema.sistema.application.dto.request.order.OrderItemSplitRequest;
+import com.sistema.sistema.application.dto.request.order.OrderChargesRequest;
 import java.time.LocalDate;
 import com.sistema.sistema.domain.model.Order;
 import com.sistema.sistema.domain.model.OrderItem;
@@ -147,6 +148,19 @@ public class OrderController {
         return ApiResponseFactory.success(
                 orderUseCase.updatePendingItem(orderId, itemId, request),
                 "Producto pendiente actualizado correctamente"
+        );
+    }
+
+    @PutMapping("/{id}/charges")
+    @PreAuthorize("hasAuthority('EDIT_ORDER')")
+    public ResponseEntity<ApiResponse<Order>> updateCharges(
+            @PathVariable Long id,
+            @Valid @RequestBody OrderChargesRequest request
+    ) {
+        log.info("Updating charges for order {}", id);
+        return ApiResponseFactory.success(
+                orderUseCase.updateCharges(id, request.getPackagingCharge(), request.getDeliveryCharge()),
+                "Cargos de la orden actualizados correctamente"
         );
     }
 

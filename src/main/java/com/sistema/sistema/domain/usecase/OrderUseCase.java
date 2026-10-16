@@ -7,6 +7,7 @@ import com.sistema.sistema.application.dto.request.order.OrderItemIncidentReques
 import com.sistema.sistema.domain.model.OrderItemIncident;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import com.sistema.sistema.application.dto.response.PageResponseDTO;
 import com.sistema.sistema.application.dto.response.order.OrderListItemDTO;
@@ -32,6 +33,8 @@ public interface OrderUseCase {
     Order addItems(Long orderId, List<OrderItem> items);
 
     Order updatePendingItem(Long orderId, Long itemId, OrderItem item);
+
+    Order updateCharges(Long orderId, BigDecimal packagingCharge, BigDecimal deliveryCharge);
 
     Order cancelPendingItem(Long orderId, Long itemId, String comment, String stockDisposition);
 

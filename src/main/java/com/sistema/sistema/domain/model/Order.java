@@ -23,6 +23,10 @@ public class Order {
     private String tableNumber;
     private String status;
     private String notes;
+    @Builder.Default
+    private BigDecimal packagingCharge = BigDecimal.ZERO;
+    @Builder.Default
+    private BigDecimal deliveryCharge = BigDecimal.ZERO;
     private List<OrderItem> items = new ArrayList<>();
     private BigDecimal incidentDiscount = BigDecimal.ZERO;
     private List<Long> nonChargeableItemIds = new ArrayList<>();

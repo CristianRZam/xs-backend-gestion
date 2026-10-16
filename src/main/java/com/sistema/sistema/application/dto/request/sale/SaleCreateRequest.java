@@ -21,6 +21,8 @@ public class SaleCreateRequest {
     private String saleNumber;
     @Size(max = 500) private String notes;
     @PositiveOrZero private BigDecimal discount = BigDecimal.ZERO;
+    @PositiveOrZero private BigDecimal packagingCharge;
+    @PositiveOrZero private BigDecimal deliveryCharge;
     @Valid @NotEmpty private List<SaleItemRequest> items;
     @Valid @NotEmpty private List<PaymentRequest> payments;
 

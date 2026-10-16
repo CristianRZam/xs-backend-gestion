@@ -17,6 +17,8 @@ public class SaleEntity {
     @Column(name = "cash_register_id", nullable = false) private Long cashRegisterId;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal subtotal;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal discount;
+    @Builder.Default @Column(name = "packaging_charge", nullable = false, precision = 12, scale = 2) private BigDecimal packagingCharge = BigDecimal.ZERO;
+    @Builder.Default @Column(name = "delivery_charge", nullable = false, precision = 12, scale = 2) private BigDecimal deliveryCharge = BigDecimal.ZERO;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal total;
     @Column(nullable = false, length = 20) private String status;
     @Column(length = 500) private String notes;
