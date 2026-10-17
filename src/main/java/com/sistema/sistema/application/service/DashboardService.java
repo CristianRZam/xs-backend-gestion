@@ -44,14 +44,26 @@ public class DashboardService implements DashboardUseCase {
         }
 
         boolean globalAllowed = SecurityUtil.hasAuthority("VIEW_DASHBOARD");
-        boolean ownAllowed = globalAllowed || SecurityUtil.hasAuthority("VIEW_OWN_DASHBOARD");
-        if (!ownAllowed) {
+        boolean ownAllowed = SecurityUtil.hasAuthority("VIEW_OWN_DASHBOARD");
+        if (!globalAllowed && !ownAllowed) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "No tienes permiso para visualizar el dashboard.");
         }
 
         boolean ownScope = "MY_SALES".equalsIgnoreCase(requestedScope);
-        if (ownScope || !globalAllowed) {
+        if (ownScope) {
+            if (!ownAllowed) {
+                throw new BusinessException(HttpStatus.FORBIDDEN,
+                        "No tienes permiso para visualizar tus ventas en el dashboard.");
+            }
             log.debug("Cargando dashboard personal para usuario {} entre {} y {}", userId, from, to);
+            return repository.getSummary(from, to, userId, "MY_SALES");
+        }
+
+        if (!globalAllowed) {
+            // Un cliente sin permiso global puede pedir por error el scope
+            // GLOBAL; nunca se le entrega información ajena, se restringe a
+            // su propio resumen.
+            log.debug("Restringiendo dashboard solicitado a las ventas propias del usuario {}", userId);
             return repository.getSummary(from, to, userId, "MY_SALES");
         }
 

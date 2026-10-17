@@ -52,6 +52,17 @@ class DashboardServiceTest {
     }
 
     @Test
+    void globalDashboardPermissionDoesNotGrantTheOwnSalesScope() {
+        authenticate(42L, "VIEW_DASHBOARD", true);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.getSummary(fromDate, toDate, "MY_SALES", null));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void userWithOwnDashboardPermissionCanOnlyQueryTheirSales() {
         authenticate(42L, "VIEW_OWN_DASHBOARD", true);
         DashboardDTO personal = DashboardDTO.builder()
